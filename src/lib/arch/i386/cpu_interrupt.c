@@ -2,6 +2,7 @@
 
 #include "x86_seg.h"
 
+#include <drivers/chip/intctl_8259.h>
 #include <drivers/log.h>
 
 #include <core/compiler.h>
@@ -102,6 +103,7 @@ const char *ivec_name(ivec_t ivec)
     case 12: return "#SS - Stack-Segment Fault";
     case 13: return "#GP - General Protection Fault";
     case 14: return "#PF - Page Fault";
+    case IVEC_IRQ_0 + IRQ_TIMER: return "Timer IRQ";
     default: return "[unknown]";
     }
 }
@@ -113,11 +115,12 @@ const char *ivec_name(ivec_t ivec)
     (IVEC == 8 || (10 <= IVEC && IVEC <= 14) || IVEC == 17)
 
 /* TODO: Use ISR and ISR_E macros to define interrupt handler functions. */
-//ISR(0, isr0);        ///< Handler for x86 #DE Divide Error
-//ISR(6, isr6);        ///< Handler for x86 #UD Undefined Opcode
-//ISR_E(8, isr8);      ///< Handler for x86 #DF Double Fault
-//ISR_E(13, isr13);    ///< Handler for x86 #GP General Protection Fault
-//ISR_E(14, isr14);    ///< Handler for x86 #PF Page Fault
+//ISR(0, isr0);        ///< Handler for x86 \#DE Divide Error
+//ISR(6, isr6);        ///< Handler for x86 \#UD Undefined Opcode
+//ISR_E(8, isr8);      ///< Handler for x86 \#DF Double Fault
+//ISR_E(13, isr13);    ///< Handler for x86 \#GP General Protection Fault
+//ISR_E(14, isr14);    ///< Handler for x86 \#PF Page Fault
+//ISR(IVEC_IRQ_0 + IRQ_TIMER, isr_irq0); ///< Handler for IRQ 0 (Timer)
 
 /** Interrupt handler functions to install into the IDT. */
 static const struct handler_to_install HANDLERS[] = {
@@ -127,6 +130,7 @@ static const struct handler_to_install HANDLERS[] = {
 //{8, isr8},   /// Double Fault
 //{13, isr13}, /// General Protection Fault
 //{14, isr14}, /// Page Fault
+//{IVEC_IRQ_0 + IRQ_TIMER, isr_irq0}, /// IRQ 0: Timer
 };
 
 /* The kernel will provide a syscall entry interrupt handler. */

@@ -23,6 +23,7 @@ long syscall_dispatch(
     case SYS_NULL:
     case SYS_MAX: break;
 
+    case SYS_thrd_yield: return thread_yield();
     }
 
     UNUSED(arg1), UNUSED(arg2), UNUSED(arg3);
