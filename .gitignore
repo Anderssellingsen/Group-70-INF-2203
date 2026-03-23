@@ -89,3 +89,11 @@ src_only/
 Makefile.buildas
 buildas.h
 .generated-project.*
+
+P2/cross_src
+P2/cross_build
+P2/cross_install
+P2/export   
+
+#For the reports
+Report/
