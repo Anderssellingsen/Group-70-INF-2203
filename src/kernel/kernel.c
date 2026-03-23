@@ -84,8 +84,7 @@ int kernel_main(void)
 
     /* Init CPU and memory. */
     init_cpu();
-    // TODO: Initialize Page Map subsystem
-    //init_pm();
+    init_pm();
 
     // TODO: Initialize timer interrupt
     //init_timer_interrupt();

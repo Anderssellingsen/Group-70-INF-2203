@@ -81,8 +81,7 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
 
         /* Use this address space.
      * We'll need to update the address space as we load the ELF segments. */
-        //TODO: Turn this on when ready
-        //pm_set_root(p->addrspc.root_entry);
+    pm_set_root(p->addrspc.root_entry);
 
     /* Make user stack writeable. */
     size_t    ustack_sz = PAGESZ;
@@ -122,10 +121,12 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
         pme_t flags = PME_USER;
         if (phdr.p_flags & PF_W) flags |= PME_W;
 
-            // TODO: set flags appropriately for ELF segment
+        res = addrspc_map(&p->addrspc, (void *) vaddr, paddr, size, flags);
+        if (res < 0) goto error;
 
             /* Load. */
-        TODO();
+        res = elf_load_seg32(&p->execfile, &phdr);
+        if (res < 0) goto error;
     }
 
     return 0;
@@ -176,6 +177,32 @@ static char *push_str(ureg_t **stack, char *str)
     return dst;
 }
 
+static void push_args(ureg_t **sp, int argc, char *argv[])
+{
+    switch (STACK_DIR) {
+    case STACK_DOWN: {
+        /* Push string data onto stack. */
+        char *new_argv[argc];
+        for (int i = 0; i < argc; i++) new_argv[i] = push_str(sp, argv[i]);
+
+        /* Push a separating zero. */
+        PUSH(*sp, 0);
+
+        /* Push new argv[] pointers. */
+        for (int i = argc - 1; i >= 0; i--) PUSH(*sp, (ureg_t) new_argv[i]);
+
+        /* Push argc. */
+        PUSH(*sp, argc);
+        break;
+    }
+
+    default: {
+        TODO();
+        kernel_noreturn();
+    }
+    };
+}
+
 enum start_strategy {
     PSTART_CALL,
     PSTART_LAUNCH,
@@ -184,16 +211,25 @@ enum start_strategy {
 
 int process_start(struct process *p, int argc, char *argv[])
 {
-    enum start_strategy start_strat = PSTART_CALL;
+    enum start_strategy start_strat = PSTART_LAUNCH;
 
     current_process = p;
 
     switch (start_strat) {
     case PSTART_CALL: {
         /* Start process via simple function call. */
-        UNUSED(p), UNUSED(argc), UNUSED(argv);
-        TODO();
-        return -ENOTSUP;
+        main_fn *entry = (void *) p->start_addr;
+        pr_debug("%s: calling to %p to start ...\n", argv[0], entry);
+        int res = entry(argc, argv);
+        pr_debug("%s: returned %d\n", argv[0], res);
+        return res;
+    }
+    case PSTART_LAUNCH: {
+        /* Launch process by switching to user stack and user privilege. */
+        push_args((ureg_t **) &p->ustack, argc, argv);
+        cpu_user_kstack_set(p->kstack);
+        cpu_user_start(p->start_addr, p->ustack);
+        /* Will not return. */
     }
     };
 
@@ -206,6 +242,21 @@ void process_kill(struct process *p)
     pr_debug("killing process %d (%s)\n", p->pid, p->name);
     process_close(p);
     if (p == current_process) kernel_noreturn();
+}
+
+_Noreturn void process_exit(int status)
+{
+    pr_info("process %d (%s) exited with status %d\n", current_process->pid,
+            current_process->name, status);
+    process_close(current_process);
+    kernel_noreturn();
+}
+
+ssize_t process_write(int fd, const void *src, size_t count)
+{
+    if (fd < 0 || fd >= FD_MAX) return -EBADF;
+    if (!current_process || !current_process->fds[fd]) return -EBADF;
+    return file_write(current_process->fds[fd], src, count);
 }
 
 /* === Thread Management === */

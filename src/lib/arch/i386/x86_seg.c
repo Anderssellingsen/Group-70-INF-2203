@@ -229,9 +229,9 @@ static struct segdesc32 kernel_gdt[] = {
                 {GDT_COMMON, .type = X86ST_CODE_R, .dpl = PL_KERNEL},
         [KSEG_KERNEL_DATA] =
                 {GDT_COMMON, .type = X86ST_DATA_W, .dpl = PL_KERNEL},
-        // TODO: Create user code segment descriptor
-        // TODO: Create user data segment descriptor
-        [KSEG_TSS] = {}, // Will be initialized at runtime
+        [KSEG_USER_CODE] = {GDT_COMMON, .type = X86ST_CODE_R, .dpl = PL_USER},
+        [KSEG_USER_DATA] = {GDT_COMMON, .type = X86ST_DATA_W, .dpl = PL_USER},
+        [KSEG_TSS]       = {}, // Will be initialized at runtime
 };
 
 /** A dedicated Pseudo-Descriptor to point to the GDT */
@@ -352,9 +352,8 @@ void cpu_user_kstack_set(uintptr_t kstack_addr)
 noreturn void cpu_user_start(uintptr_t start_addr, uintptr_t ustack_addr)
 {
     x86_segsel_t codeseg, dataseg;
-    /* TODO: Use user code and data segments instead. */
-    codeseg = X86_SEGSEL_INIT(KSEG_KERNEL_CODE, PL_USER);
-    dataseg = X86_SEGSEL_INIT(KSEG_KERNEL_DATA, PL_USER);
+    codeseg = X86_SEGSEL_INIT(KSEG_USER_CODE, PL_USER);
+    dataseg = X86_SEGSEL_INIT(KSEG_USER_DATA, PL_USER);
 
     ureg_t flags = 0;
     //flags |= (1 << 9); // Enable interrupts in user space.
