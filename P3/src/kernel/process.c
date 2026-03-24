@@ -37,7 +37,12 @@ unsigned char kstacks[THREAD_MAX][KSTACKSZ] ATTR_ALIGNED(KSTACKSZ);
 static struct thread *thread_alloc(void)
 {
     for (int i = 0; i < THREAD_MAX; i++)
-        if (!tcb[i].tid) return &tcb[i];
+        if (!tcb[i].tid) {
+            tcb[i].tid = i; 
+            tcb[i].runstate = RS_NEW;
+            return &tcb[i];
+        }
+            
     return NULL;
 }
 
@@ -231,6 +236,10 @@ int process_start(struct process *p, int argc, char *argv[])
         cpu_user_start(p->start_addr, p->ustack);
         /* Will not return. */
     }
+
+    case PSTART_THREAD: {
+        struct thread * thread = thread_create();
+    }
     };
 
     return -ENOTSUP;
@@ -315,7 +324,14 @@ int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
 {
     TODO();
     UNUSED(p), UNUSED(start_addr), UNUSED(ustack);
-    return -ENOSYS;
+    
+    struct thread ** new_thread = thread_alloc(), *thread = &new_thread;
+    
+    thread->process = process; 
+    thread->ustack = ustack; 
+    
+    
+    
 }
 
 _Noreturn void thread_exit(int status)
