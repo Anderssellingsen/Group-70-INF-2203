@@ -26,7 +26,6 @@ cpu_fresh_stack:
 	.type	cpu_task_restore, @function
 
 cpu_task_save:
-	push %ecx
 	mov	+4(%esp), %ecx		// arg1: struct cpu_task_save ptr
 
 	/* TODO: Save state into cpu_task_save struct. */
@@ -38,7 +37,6 @@ cpu_task_save:
 	//assumes that is previous ecx. Might need to find it though
     movl +8(%esp), +8(%ecx) 
 	
-    movl %edx, +12(%ecx)
     movl %edi, +16(%ecx)
     movl %esi, +20(%ecx)
 
@@ -56,13 +54,11 @@ cpu_task_restore:
 	//movl +0(%ecx), %eax // need to restore eax?
 	
 	movl +4(%ecx), %ebx
-	movl +12(%ecx), %edx
 	movl +16(%ecx), %edi
 	movl +20(%ecx), %esi
 
 	movl +24(%ecx), %esp
 	movl +28(%ecx), %ebp
-	movl +8(%ecx), %ecx
 
 
 	/* TODO: Restore state from cpu_task_save struct.

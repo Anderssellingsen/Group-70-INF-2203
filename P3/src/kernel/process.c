@@ -40,6 +40,7 @@ static struct thread *thread_alloc(void)
         if (!tcb[i].tid) {
             tcb[i].tid = i; 
             tcb[i].runstate = RS_NEW;
+            tcb[i].kstack = (uintptr) kstacks[i][KSTACKSZ]
             return &tcb[i];
         }
             
@@ -238,7 +239,11 @@ int process_start(struct process *p, int argc, char *argv[])
     }
 
     case PSTART_THREAD: {
-        struct thread * thread = thread_create();
+        
+        //Allocating and filling the tcb
+        for(int i = 0; i < THREAD_MAX; i++) {
+            thread_create();
+        }
     }
     };
 
@@ -284,7 +289,9 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
     /* Set current thread and set kstack on interrupt. */
     current_thread  = incoming;
     current_process = incoming->process;
+
     /* TODO: Set target kernel stack for incoming thread. */
+    cpu_user_kstack_set(incomming->kstack);
 
     /* Low-level save/restore. */
     if (outgoing && cpu_task_save(&outgoing->saved_state) != 0) {
@@ -322,16 +329,26 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
 
 int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
 {
-    TODO();
-    UNUSED(p), UNUSED(start_addr), UNUSED(ustack);
+    //allocating space for a single thread?
+    //TODO();
+    //UNUSED(p), UNUSED(start_addr), UNUSED(ustack);
     
-    struct thread ** new_thread = thread_alloc(), *thread = &new_thread;
+    struct thread * new_thread = thread_alloc();
+    new_thread->process = p; 
+
+    if(!new_thread) {
+        return 0; 
+    } 
     
-    thread->process = process; 
-    thread->ustack = ustack; 
+    //Adding the newly allocated thread in the thread list and assigned as the head
+    list_add_tail(&new_thread->process_threads, &p->threads);
+    p->threadct_activte ++;
     
+    //Then adding the thread into the ready queue
+    new_thread->runstate = RS_READY;
+    sched_add(new_thread);
     
-    
+    return 1; 
 }
 
 _Noreturn void thread_exit(int status)

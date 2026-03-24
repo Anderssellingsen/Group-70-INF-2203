@@ -100,10 +100,8 @@ struct cpu_task_save {
     //Should save every register
 
     /*general purpose registers*/
-    ureg_t eax;
     ureg_t ebx; 
     ureg_t ecx;
-    ureg_t edx;
     ureg_t edi;
     ureg_t esi; 
 
