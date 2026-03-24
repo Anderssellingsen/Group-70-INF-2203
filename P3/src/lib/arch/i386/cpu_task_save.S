@@ -29,7 +29,7 @@ cpu_task_save:
 	mov	+4(%esp), %ecx		// arg1: struct cpu_task_save ptr
 
 	/* TODO: Save state into cpu_task_save struct. */
-	/*Saving every general purpose registers to the struct*/
+	/*Saving the relevant registers to the struct*/
 
 	movl %eax, +0(%ecx)
  	movl %ebx, +4(%ecx)
@@ -50,8 +50,6 @@ cpu_task_save:
 cpu_task_restore:
 	mov	+4(%esp), %ecx		// arg1: struct cpu_task_save ptr
 	mov	+8(%esp), %eax		// arg2: return code
-	
-	//movl +0(%ecx), %eax // need to restore eax?
 	
 	movl +4(%ecx), %ebx
 	movl +16(%ecx), %edi

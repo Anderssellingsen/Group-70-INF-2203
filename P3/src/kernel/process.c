@@ -241,10 +241,16 @@ int process_start(struct process *p, int argc, char *argv[])
     case PSTART_THREAD: {
         
         //Allocating and filling the tcb
-        for(int i = 0; i < THREAD_MAX; i++) {
-            thread_create();
-        }
-    }
+        int res = thread_create();
+
+        //How to start the threads?
+        if(!res) {
+            return -ESRCH;
+        } 
+
+        thread_switch(NULL, current_thread);
+        //Needs to start the process
+        
     };
 
     return -ENOTSUP;
@@ -311,7 +317,10 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
     switch (incoming->runstate) {
     case RS_NEW:
         /* TODO: update run state and launch thread */
-        return -ENOSYS;
+        incomming->runsate = RS_READY;
+        
+        cpu_user_start(incomming->start_addr, incomming->ustack); 
+        //return -ENOSYS;
 
     case RS_READY:
         cpu_task_restore(&incoming->saved_state, 1);
@@ -333,19 +342,20 @@ int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
     //TODO();
     //UNUSED(p), UNUSED(start_addr), UNUSED(ustack);
     
+    //thread alloc returns null if it could not allocate space
     struct thread * new_thread = thread_alloc();
-    new_thread->process = p; 
-
+    
     if(!new_thread) {
         return 0; 
-    } 
+    }
+
+    new_thread->process = p;  
     
     //Adding the newly allocated thread in the thread list and assigned as the head
     list_add_tail(&new_thread->process_threads, &p->threads);
     p->threadct_activte ++;
     
     //Then adding the thread into the ready queue
-    new_thread->runstate = RS_READY;
     sched_add(new_thread);
     
     return 1; 
@@ -353,9 +363,25 @@ int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
 
 _Noreturn void thread_exit(int status)
 {
-    TODO();
-    UNUSED(status);
-    kernel_noreturn();
+    //TODO();
+    //UNUSED(status);
+
+    //decrement active thread
+    current_thread->process->threadct_activate --;
+
+    if(current_thread->process->threadct_activate == 0) {
+        process_exit();
+    }
+    
+    pr_info( "exiting current thread with status:%d The thread id: %d\n", status, current_thread->tid);
+    thread_close(current_thread);
+    current_thread = NULL; 
+
+    
+    //If the ready queue is not empty, chooses the next thread to run.
+    schedule(); 
+
+    //kernel_noreturn(); //Needed? choose_next_thread already has this in case the ready queue is empty
 }
 
 int thread_join(pid_t tid)

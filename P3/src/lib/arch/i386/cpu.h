@@ -100,6 +100,8 @@ struct cpu_task_save {
     //Should save every register
 
     /*general purpose registers*/
+    /*According to the lecture video, ecx, edx and eax don't need to be included since the kernel
+    knows that they can be clobbered*/
     ureg_t ebx; 
     ureg_t ecx;
     ureg_t edi;
@@ -107,7 +109,6 @@ struct cpu_task_save {
 
     ureg_t esp;
     ureg_t ebp; 
-
     
 };
 
