@@ -97,6 +97,20 @@ _Noreturn void cpu_fresh_stack(void (*fn)(void), uintptr_t kstack);
 
 struct cpu_task_save {
     /* TODO: Decide what state to save in struct */
+    //Should save every register
+
+    /*general purpose registers*/
+    ureg_t eax;
+    ureg_t ebx; 
+    ureg_t ecx;
+    ureg_t edx;
+    ureg_t edi;
+    ureg_t esi; 
+
+    ureg_t esp;
+    ureg_t ebp; 
+
+    
 };
 
 ATTR_RETURNS_TWICE int cpu_task_save(struct cpu_task_save *save_state);

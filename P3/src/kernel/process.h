@@ -59,8 +59,15 @@ struct thread {
 
     /* TODO: Other fields for thread? */
 
+    //Needed? process struct already stores them
+    uintptr_t ustack; 
+    uintptr_t kstack;
+    uintptr_t start_addr;
+
+
     /* Run state */
-    enum runstate        runstate;
+    //the current status of the thread 
+    enum runstate        runstate; 
     struct cpu_task_save saved_state;
     int                  exit_status;
 
