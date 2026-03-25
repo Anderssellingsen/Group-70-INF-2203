@@ -1,0 +1,181 @@
+{
+  "main": {
+    "id": "35cba36e470cf501",
+    "type": "split",
+    "children": [
+      {
+        "id": "361b57d84de78d7a",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b908d7baa1f90812",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "Ny fane"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "0b9d3dc5772d9d54",
+    "type": "split",
+    "children": [
+      {
+        "id": "67c6cb079f8b6ee0",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "09ddfeb7c79d1c49",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Filutforsker"
+            }
+          },
+          {
+            "id": "47b92d488c2741c2",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Søk"
+            }
+          },
+          {
+            "id": "351d9ed5c67a509b",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bokmerker"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "686232e5f2d060f6",
+    "type": "split",
+    "children": [
+      {
+        "id": "fc5903765bcfdd63",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e756776a7ddec53d",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Lenker tilbake"
+            }
+          },
+          {
+            "id": "801171229d6db92f",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing Links"
+            }
+          },
+          {
+            "id": "c57acee11dbece7c",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tagger"
+            }
+          },
+          {
+            "id": "74bbcedc6c8fbf2a",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Alle egenskaper"
+            }
+          },
+          {
+            "id": "d49ac9b8e5388e5d",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Disposisjon"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Åpne hurtigåpner": false,
+      "graph:Åpne grafvisning": false,
+      "canvas:Opprett ny Canvas": false,
+      "daily-notes:Åpne dagens notat": false,
+      "templates:Sett inn mal": false,
+      "command-palette:Åpne kommandovelger": false,
+      "bases:Opprett ny base": false
+    }
+  },
+  "active": "b908d7baa1f90812",
+  "lastOpenFiles": []
+}
