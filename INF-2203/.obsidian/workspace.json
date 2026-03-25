@@ -177,5 +177,27 @@
     }
   },
   "active": "28b682f391ca62ea",
-  "lastOpenFiles": []
+  "lastOpenFiles": [
+    "pre-code files/virtual file system.md",
+    "pre-code files/CRuntime0.md",
+    "pre-code files/ABI.md",
+    "pre-code files",
+    "P3.md",
+    "P2.md",
+    "Image from report.png",
+    "Excalidraw/protection levels.md",
+    "Excalidraw/process_initiation.md",
+    "Excalidraw/process's stack.md",
+    "Excalidraw/Overview of main memory.md",
+    "Excalidraw/ISR for syscall.md",
+    "Excalidraw",
+    "Concepts/system call.md",
+    "Concepts/programmable interrupt controller.md",
+    "Concepts/page table hierarchy and paging.md",
+    "Concepts/interruption, IDT and ISR.md",
+    "Concepts/Memory protection.md",
+    "Concepts/GDT.md",
+    "Concepts/Boot loader.md",
+    "Concepts"
+  ]
 }
