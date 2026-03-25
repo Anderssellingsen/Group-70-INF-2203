@@ -11,10 +11,14 @@
             "id": "28b682f391ca62ea",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "P2.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "Ny fane"
+              "title": "P2"
             }
           }
         ]
@@ -157,13 +161,23 @@
               "icon": "lucide-list",
               "title": "Disposisjon"
             }
+          },
+          {
+            "id": "fbe76ca83866bed9",
+            "type": "leaf",
+            "state": {
+              "type": "git-view",
+              "state": {},
+              "icon": "git-pull-request",
+              "title": "Source Control"
+            }
           }
-        ]
+        ],
+        "currentTab": 5
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -173,17 +187,23 @@
       "daily-notes:Åpne dagens notat": false,
       "templates:Sett inn mal": false,
       "command-palette:Åpne kommandovelger": false,
-      "bases:Opprett ny base": false
+      "bases:Opprett ny base": false,
+      "obsidian-excalidraw-plugin:New drawing": false,
+      "obsidian-git:Open Git source control": false
     }
   },
   "active": "28b682f391ca62ea",
   "lastOpenFiles": [
-    "pre-code files/virtual file system.md",
-    "pre-code files/CRuntime0.md",
-    "pre-code files/ABI.md",
-    "pre-code files",
     "P3.md",
     "P2.md",
+    "pre-code files/virtual file system.md",
+    "pre-code files/ABI.md",
+    "pre-code files/CRuntime0.md",
+    "Concepts/page table hierarchy and paging.md",
+    "Concepts/interruption, IDT and ISR.md",
+    "Concepts/GDT.md",
+    "Concepts/Boot loader.md",
+    "pre-code files",
     "Image from report.png",
     "Excalidraw/protection levels.md",
     "Excalidraw/process_initiation.md",
@@ -193,11 +213,7 @@
     "Excalidraw",
     "Concepts/system call.md",
     "Concepts/programmable interrupt controller.md",
-    "Concepts/page table hierarchy and paging.md",
-    "Concepts/interruption, IDT and ISR.md",
     "Concepts/Memory protection.md",
-    "Concepts/GDT.md",
-    "Concepts/Boot loader.md",
     "Concepts"
   ]
 }
