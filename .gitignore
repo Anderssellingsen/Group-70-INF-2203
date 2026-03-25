@@ -97,3 +97,7 @@ P2/export
 
 #For the reports
 Report/
+
+#Mac stuff
+P3/.DS_Store
+.DS_Store
