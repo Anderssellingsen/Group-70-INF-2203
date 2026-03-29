@@ -90,10 +90,10 @@ Makefile.buildas
 buildas.h
 .generated-project.*
 
-P2/cross_src
-P2/cross_build
-P2/cross_install
-P2/export   
+P3/cross_src
+P3/cross_build
+P3/cross_install
+P3/export   
 
 #For the reports
 Report/
