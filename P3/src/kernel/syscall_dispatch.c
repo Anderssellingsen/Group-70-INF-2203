@@ -28,7 +28,7 @@ long syscall_dispatch(
 
     //correct arguments?
     case SYS_thrd_create: return thread_create(arg1, arg2, arg3);
-    case SYS_thrd_exit: return thread_exit(arg1);
+    case SYS_thrd_exit:  thread_exit(arg1);
     case SYS_thrd_join: return thread_join(arg1);
     
     case SYS_thrd_yield: return thread_yield();

@@ -30,18 +30,14 @@ cpu_task_save:
 
 	/* TODO: Save state into cpu_task_save struct. */
 	/*Saving the relevant registers to the struct*/
-
-	movl %eax, +0(%ecx)
- 	movl %ebx, +4(%ecx)
-
-	//assumes that is previous ecx. Might need to find it though
-    movl +8(%esp), +8(%ecx) 
 	
-    movl %edi, +16(%ecx)
-    movl %esi, +20(%ecx)
+ 	mov %ebx, (%ecx) 
+	
+    mov %edi, +4(%ecx) 
+    mov %esi, +8(%ecx)
 
-    movl %esp, +24(%ecx)
-    movl %ebp, +28(%ecx) 
+    mov %esp, +12(%ecx)
+    mov %ebp, +16(%ecx) 
 	
 	/* Return to caller with return value 0. */
 	mov	$0, %eax		// 0 return code to indicate save
@@ -51,12 +47,12 @@ cpu_task_restore:
 	mov	+4(%esp), %ecx		// arg1: struct cpu_task_save ptr
 	mov	+8(%esp), %eax		// arg2: return code
 	
-	movl +4(%ecx), %ebx
-	movl +16(%ecx), %edi
-	movl +20(%ecx), %esi
+	mov +0(%ecx), %ebx
+	mov +4(%ecx), %edi
+	mov +8(%ecx), %esi
 
-	movl +24(%ecx), %esp
-	movl +28(%ecx), %ebp
+	mov +12(%ecx), %esp
+	mov +16(%ecx), %ebp
 
 
 	/* TODO: Restore state from cpu_task_save struct.

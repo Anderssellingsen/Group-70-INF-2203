@@ -40,7 +40,10 @@ static struct thread *thread_alloc(void)
         if (!tcb[i].tid) {
             tcb[i].tid = i; 
             tcb[i].runstate = RS_NEW;
-            tcb[i].kstack = (uintptr) kstacks[i][KSTACKSZ]
+            tcb[i].kstack = (uintptr_t) kstacks[i][KSTACKSZ]; 
+            INIT_LIST_HEAD(&tcb[i].process_threads); 
+            INIT_LIST_HEAD(&tcb[i].queue); 
+            current_thread = &tcb[i]; 
             return &tcb[i];
         }
             
@@ -234,12 +237,14 @@ int process_start(struct process *p, int argc, char *argv[])
         /* Launch process by switching to user stack and user privilege. */
         push_args((ureg_t **) &p->ustack, argc, argv);
         cpu_user_kstack_set(p->kstack);
+        INIT_LIST_HEAD(&p->threads);
         cpu_user_start(p->start_addr, p->ustack);
         /* Will not return. */
     }
 
     case PSTART_THREAD: {
         
+        /*
         //Allocating and filling the tcb
         int res = thread_create();
 
@@ -250,10 +255,11 @@ int process_start(struct process *p, int argc, char *argv[])
 
         thread_switch(NULL, current_thread);
         //Needs to start the process
-        
+        */
     };
 
     return -ENOTSUP;
+}
 }
 
 void process_kill(struct process *p)
@@ -297,7 +303,7 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
     current_process = incoming->process;
 
     /* TODO: Set target kernel stack for incoming thread. */
-    cpu_user_kstack_set(incomming->kstack);
+    cpu_user_kstack_set(incoming->kstack);
 
     /* Low-level save/restore. */
     if (outgoing && cpu_task_save(&outgoing->saved_state) != 0) {
@@ -317,9 +323,9 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
     switch (incoming->runstate) {
     case RS_NEW:
         /* TODO: update run state and launch thread */
-        incomming->runsate = RS_READY;
+        incoming->runstate = RS_READY;
         
-        cpu_user_start(incomming->start_addr, incomming->ustack); 
+        cpu_user_start(incoming->start_addr, incoming->ustack); 
         //return -ENOSYS;
 
     case RS_READY:
@@ -343,6 +349,7 @@ int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
     //UNUSED(p), UNUSED(start_addr), UNUSED(ustack);
     
     //thread alloc returns null if it could not allocate space
+
     struct thread * new_thread = thread_alloc();
     
     if(!new_thread) {
@@ -353,7 +360,7 @@ int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
     
     //Adding the newly allocated thread in the thread list and assigned as the head
     list_add_tail(&new_thread->process_threads, &p->threads);
-    p->threadct_activte ++;
+    p->threadct_active ++;
     
     //Then adding the thread into the ready queue
     sched_add(new_thread);
@@ -367,10 +374,10 @@ _Noreturn void thread_exit(int status)
     //UNUSED(status);
 
     //decrement active thread
-    current_thread->process->threadct_activate --;
+    current_thread->process->threadct_active --;
 
-    if(current_thread->process->threadct_activate == 0) {
-        process_exit();
+    if(current_thread->process->threadct_active == 0) {
+        process_exit(status);
     }
     
     pr_info( "exiting current thread with status:%d The thread id: %d\n", status, current_thread->tid);
