@@ -10,10 +10,16 @@
 
 /* === Threads === */
 
+typedef int (*thrd_start_t)(void *); ///< Type for a thread start function
+
 struct _thrd {
-    pid_t       ktid;
-    atomic_flag inuse;
-    uintptr_t   ustack_base;
+    pid_t         ktid;
+    atomic_flag   inuse;
+    uintptr_t     ustack_base;
+
+    thrd_start_t  start_fn;
+    void         *start_arg;
+
 #if __linux__
     volatile uint32_t futex;
 #endif
@@ -27,7 +33,6 @@ enum _thrd_res {
 };
 
 typedef struct _thrd *thrd_t; ///< Type for a user-side thread identifier
-typedef int (*thrd_start_t)(void *); ///< Type for a thread start function
 
 int            thrd_create(thrd_t *thr, thrd_start_t func, void *arg);
 _Noreturn void thrd_exit(int res);

@@ -108,11 +108,13 @@ struct cpu_task_save {
 
     ureg_t esp;
     ureg_t ebp; 
+
+    ureg_t eip;
     
 };
 
 ATTR_RETURNS_TWICE int cpu_task_save(struct cpu_task_save *save_state);
-_Noreturn int cpu_task_restore(struct cpu_task_save *save_state, int status);
+_Noreturn void cpu_task_restore(struct cpu_task_save *save_state, int status);
 
 typedef uint64_t cputick_t;
 

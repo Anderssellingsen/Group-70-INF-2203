@@ -87,7 +87,8 @@ int kernel_main(void)
     init_pm();
 
     // TODO: Initialize timer interrupt
-    //init_timer_interrupt();
+    init_int_controller();
+    init_timer_interrupt();
 
     /* Init more essential drivers. */
     init_driver_ramdisk();

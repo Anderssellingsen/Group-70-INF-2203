@@ -37,16 +37,8 @@ unsigned char kstacks[THREAD_MAX][KSTACKSZ] ATTR_ALIGNED(KSTACKSZ);
 static struct thread *thread_alloc(void)
 {
     for (int i = 0; i < THREAD_MAX; i++)
-        if (!tcb[i].tid) {
-            tcb[i].tid = i; 
-            tcb[i].runstate = RS_NEW;
-            tcb[i].kstack = (uintptr_t) kstacks[i][KSTACKSZ]; 
-            INIT_LIST_HEAD(&tcb[i].process_threads); 
-            INIT_LIST_HEAD(&tcb[i].queue); 
-            current_thread = &tcb[i]; 
-            return &tcb[i];
-        }
-            
+        if (!tcb[i].tid) return &tcb[i];
+
     return NULL;
 }
 
@@ -77,6 +69,8 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
 
     /* Reset struct. */
     *p = (struct process){.pid = next_pid++};
+    INIT_LIST_HEAD(&p->threads);
+    p->threadct_active = 0;
     path_basename(p->name, DEBUGSTR_MAX, path);
 
     /* Set stack addresses. */
@@ -220,46 +214,15 @@ enum start_strategy {
 
 int process_start(struct process *p, int argc, char *argv[])
 {
-    enum start_strategy start_strat = PSTART_LAUNCH;
-
     current_process = p;
 
-    switch (start_strat) {
-    case PSTART_CALL: {
-        /* Start process via simple function call. */
-        main_fn *entry = (void *) p->start_addr;
-        pr_debug("%s: calling to %p to start ...\n", argv[0], entry);
-        int res = entry(argc, argv);
-        pr_debug("%s: returned %d\n", argv[0], res);
-        return res;
-    }
-    case PSTART_LAUNCH: {
-        /* Launch process by switching to user stack and user privilege. */
-        push_args((ureg_t **) &p->ustack, argc, argv);
-        cpu_user_kstack_set(p->kstack);
-        INIT_LIST_HEAD(&p->threads);
-        cpu_user_start(p->start_addr, p->ustack);
-        /* Will not return. */
-    }
+    push_args((ureg_t **) &p->ustack, argc, argv);
 
-    case PSTART_THREAD: {
-        
-        /*
-        //Allocating and filling the tcb
-        int res = thread_create();
+    int tid = thread_create(p, p->start_addr, p->ustack);
+    if (tid < 0) return tid;
 
-        //How to start the threads?
-        if(!res) {
-            return -ESRCH;
-        } 
-
-        thread_switch(NULL, current_thread);
-        //Needs to start the process
-        */
-    };
-
-    return -ENOTSUP;
-}
+    schedule();
+    return 0;
 }
 
 void process_kill(struct process *p)
@@ -272,9 +235,20 @@ void process_kill(struct process *p)
 
 _Noreturn void process_exit(int status)
 {
-    pr_info("process %d (%s) exited with status %d\n", current_process->pid,
-            current_process->name, status);
-    process_close(current_process);
+    struct process *p = current_process;
+    struct thread  *t = current_thread;
+
+    pr_info("process %d (%s) exited with status %d\n",
+            p ? p->pid : 0,
+            p ? p->name : "",
+            status);
+
+    if (t) {
+        current_thread = NULL;
+        thread_close(t);
+    }
+
+    process_close(p);
     kernel_noreturn();
 }
 
@@ -298,39 +272,33 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
             incoming->process->name
     );
 
-    /* Set current thread and set kstack on interrupt. */
+    pr_debug("incoming runstate=%d start=%p ustack=%p kstack=%p\n",
+         incoming->runstate,
+         (void *)incoming->start_addr,
+         (void *)incoming->ustack,
+         (void *)incoming->kstack
+    );
+
     current_thread  = incoming;
     current_process = incoming->process;
 
-    /* TODO: Set target kernel stack for incoming thread. */
     cpu_user_kstack_set(incoming->kstack);
+    pm_set_root(incoming->process->addrspc.root_entry);
 
-    /* Low-level save/restore. */
     if (outgoing && cpu_task_save(&outgoing->saved_state) != 0) {
-        /* Non-zero return value indicates that we are resuming
-         * a saved thread. Return from here and follow saved thread's
-         * return path to where it yielded or was interrupted. */
         pr_trace("%d (%s) resumed\n", outgoing->tid, outgoing->process->name);
         return 0;
     } else if (outgoing) {
-        /* Zero return value indicates that the outgoing thread was
-         * saved successfully. Continue to restoring incoming thread. */
         pr_trace("%d (%s) saved\n", outgoing->tid, outgoing->process->name);
     }
 
-    /* No outgoing thread or successful save of outgoing thread.
-     * Now switch to incoming thread. */
     switch (incoming->runstate) {
     case RS_NEW:
-        /* TODO: update run state and launch thread */
         incoming->runstate = RS_READY;
-        
-        cpu_user_start(incoming->start_addr, incoming->ustack); 
-        //return -ENOSYS;
+        cpu_user_start(incoming->start_addr, incoming->ustack);
 
     case RS_READY:
         cpu_task_restore(&incoming->saved_state, 1);
-        /* No return. */
 
     default:
         pr_error(
@@ -338,74 +306,99 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
                 incoming->tid, incoming->process->name, incoming->runstate
         );
     }
+    
 
     kernel_noreturn();
 }
 
 int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
 {
-    //allocating space for a single thread?
-    //TODO();
-    //UNUSED(p), UNUSED(start_addr), UNUSED(ustack);
-    
-    //thread alloc returns null if it could not allocate space
+    struct thread *t = thread_alloc();
+    if (!t) return -ENOMEM;
 
-    struct thread * new_thread = thread_alloc();
-    
-    if(!new_thread) {
-        return 0; 
-    }
+    ptrdiff_t idx = t - tcb;
 
-    new_thread->process = p;  
-    
-    //Adding the newly allocated thread in the thread list and assigned as the head
-    list_add_tail(&new_thread->process_threads, &p->threads);
-    p->threadct_active ++;
-    
-    //Then adding the thread into the ready queue
-    sched_add(new_thread);
-    
-    return 1; 
+    *t = (struct thread){
+            .tid        = next_tid++,
+            .process    = p,
+            .ustack     = ustack,
+            .kstack     = (uintptr_t) kstacks[idx] + KSTACKSZ,
+            .start_addr = start_addr,
+            .runstate   = RS_NEW,
+    };
+
+    INIT_LIST_HEAD(&t->process_threads);
+    INIT_LIST_HEAD(&t->queue);
+
+    list_add_tail(&t->process_threads, &p->threads);
+    p->threadct_active++;
+
+    sched_add(t);
+
+    return t->tid;
 }
 
 _Noreturn void thread_exit(int status)
 {
-    //TODO();
-    //UNUSED(status);
+    pr_info(
+            "thread %d (%s) exited with status %d\n",
+            current_thread->tid,
+            current_thread->process->name,
+            status
+    );
 
-    //decrement active thread
-    current_thread->process->threadct_active --;
+    current_thread->exit_status = status;
+    current_thread->runstate    = RS_EXITED;
+    current_thread->process->threadct_active--;
 
-    if(current_thread->process->threadct_active == 0) {
+    if (current_thread->process->threadct_active == 0)
         process_exit(status);
-    }
-    
-    pr_info( "exiting current thread with status:%d The thread id: %d\n", status, current_thread->tid);
-    thread_close(current_thread);
-    current_thread = NULL; 
 
-    
-    //If the ready queue is not empty, chooses the next thread to run.
-    schedule(); 
+    current_thread = NULL;
+    schedule();
 
-    //kernel_noreturn(); //Needed? choose_next_thread already has this in case the ready queue is empty
+    kernel_noreturn();
 }
 
 int thread_join(pid_t tid)
 {
-    TODO();
-    UNUSED(tid);
-    return -ENOSYS;
+    struct thread *t = NULL;
+
+    for (int i = 0; i < THREAD_MAX; i++) {
+        if (tcb[i].tid == tid) {
+            t = &tcb[i];
+            break;
+        }
+    }
+
+    if (!t) return -ESRCH;
+    if (!current_thread) return -ESRCH;
+    if (t == current_thread) return -EDEADLK;
+
+    while (t->runstate != RS_EXITED)
+        thread_yield();
+
+    thread_close(t);
+    return 0;
 }
 
 int thread_yield(void)
 {
-    TODO();
-    return -ENOSYS;
+    if (!current_thread) return -ESRCH;
+
+    current_thread->yield_ct++;
+    schedule();
+    return 0;
 }
 
 int thread_preempt(void)
 {
-    TODO();
-    return -ENOSYS;
+    if (!current_thread) return -ESRCH;
+
+    current_thread->preempt_ct++;
+    pr_debug("preempt thread %d count %d\n",
+             current_thread->tid, current_thread->preempt_ct);
+
+    schedule();
+    return 0;
 }

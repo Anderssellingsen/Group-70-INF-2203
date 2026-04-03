@@ -31,13 +31,16 @@ cpu_task_save:
 	/* TODO: Save state into cpu_task_save struct. */
 	/*Saving the relevant registers to the struct*/
 	
- 	mov %ebx, (%ecx) 
+ 	mov %ebx, +0(%ecx) 
 	
     mov %edi, +4(%ecx) 
     mov %esi, +8(%ecx)
 
     mov %esp, +12(%ecx)
     mov %ebp, +16(%ecx) 
+
+	mov	+0(%esp), %edx
+	mov	%edx, +20(%ecx)
 	
 	/* Return to caller with return value 0. */
 	mov	$0, %eax		// 0 return code to indicate save
@@ -58,6 +61,6 @@ cpu_task_restore:
 	/* TODO: Restore state from cpu_task_save struct.
 	 * Should basically be the reverse of cpu_task_save. */
 
+	jmp	*+20(%ecx)
 
 	/* Return to caller of cpu_task_save with given return value. */
-	ret

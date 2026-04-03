@@ -55,8 +55,13 @@ static void handle_irq(ivec_t ivec, struct intrdata *idata)
     /* Handle IRQ. */
     switch (irq) {
     case IRQ_TIMER:
+        pr_trace("timer IRQ\n");
+        pic_send_eoi(irq);
 
-    default: {
+        if (current_thread) thread_preempt();
+        break;
+
+    default:
         logf_once(
                 LOG_INFO, "unhandled IRQ " FMT_IVEC " (%s)\n", irq,
                 ivec_name(ivec)
@@ -64,7 +69,6 @@ static void handle_irq(ivec_t ivec, struct intrdata *idata)
         pr_debug("IRQ cts: %s\n", (irq_cts_tostr(dbgbuf, dbgsz), dbgbuf));
         pic_send_eoi(irq);
         break;
-    }
     }
 }
 
@@ -83,7 +87,7 @@ void interrupt_dispatch(ivec_t ivec, struct intrdata *idata)
 int init_int_controller(void)
 {
     irqmask_t IRQS_TO_ENABLE = 0;
-    //IRQS_TO_ENABLE |= (1 << IRQ_TIMER);
+    IRQS_TO_ENABLE |= (1 << IRQ_TIMER);
 
     /* Initialize Interrupt Controller. */
     pic_init(IVEC_IRQ_0);

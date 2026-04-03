@@ -52,6 +52,13 @@ static void thrd_free(thrd_t thrd)
  *          Note: This differs from the C11 standard, which has a special
  *          enum for thread return values.
  */
+static _Noreturn void thrd_entry(void *arg)
+{
+    thrd_t thrd = arg;
+    int res = thrd->start_fn(thrd->start_arg);
+    thrd_exit(res);
+}
+
 int thrd_create(thrd_t *thrd, thrd_start_t func, void *arg)
 {
     struct _thrd *ut = thrd_alloc();
@@ -59,9 +66,11 @@ int thrd_create(thrd_t *thrd, thrd_start_t func, void *arg)
 
     ptrdiff_t thr_i = ut - uthrds;
     ut->ustack_base = (uintptr_t) ustacks[thr_i];
+    ut->start_fn    = func;
+    ut->start_arg   = arg;
 
     int   res      = -ENOSYS;
-    void *stackptr = (void *) ut->ustack_base + THRD_STACKSZ;
+    void *stackptr = (void *) (ut->ustack_base + THRD_STACKSZ);
 
 #if __linux__
     ut->futex      = 1;
@@ -71,7 +80,7 @@ int thrd_create(thrd_t *thrd, thrd_start_t func, void *arg)
             func, stackptr, flags, arg, &ut->ktid, NULL, &ut->futex
     );
 #elif __munix__
-    res = syscall_thrd_create_munix(func, stackptr, arg);
+    res = syscall_thrd_create_munix(thrd_entry, stackptr, ut);
 #endif
 
     /* Error: call returned negative errno */
@@ -113,7 +122,9 @@ int thrd_join(thrd_t thrd)
 {
     int res;
     if (!thrd_ok(thrd)) return -ESRCH;
+
     struct _thrd *ut = thrd;
+
 #if __linux__
     res = syscall(SYS_futex, &ut->futex, FUTEX_WAIT, 1, NULL);
     if (res == -EAGAIN && ut->futex == 0) res = 0;
@@ -121,7 +132,6 @@ int thrd_join(thrd_t thrd)
     res = syscall(SYS_thrd_join, ut->ktid);
 #endif
 
-    /* Error: call returned negative errno */
     if (res < 0) return res;
 
     thrd_free(ut);
