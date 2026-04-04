@@ -44,6 +44,7 @@ void thrd_yield(void);
 
 struct _mtx {
     /* TODO: Design Mutex struct */
+    atomic_flag flag;
 };
 
 typedef struct _mtx mtx_t; ///< Type for a user-side mutex

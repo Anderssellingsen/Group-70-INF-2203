@@ -105,7 +105,11 @@ static int phl_print(struct philosopher *phl)
         fprintf_cursor_down(stdout, 2);
         fprintf_cursor_horiz(stdout, 0);
     }
+
+    
+    
     mtx_unlock(&print_mtx);
+    
     return 0;
 }
 
@@ -138,9 +142,11 @@ static int phl_main(void *arg)
 
         /* Pick up fork B */
         mtx_lock(forkb);
+        
         *has_b = 1;
         phl_print(phl);
         //delay_loop(slowdown);
+        
 
         /* Eat */
         phl->state = PHL_EATING;

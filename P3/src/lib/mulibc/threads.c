@@ -149,39 +149,60 @@ void thrd_yield(void)
 
 /* === Mutexes === */
 
+//initial a lock based on type variable
 int mtx_init(mtx_t *mutex, int type)
 {
-    /* TODO */
-    (void) mutex;
-    (void) type;
+
+    switch (type)
+    {
+
+    //the usual spinlock
+    case mtx_plain:
+        atomic_flag_clear(&mutex->flag);
+        break;
+
+    default:
+        return thrd_error;
+    } 
+
     return thrd_success;
 }
 
+//deallocating the lock? Does not do much 
 void mtx_destroy(mtx_t *mutex)
 {
-    /* TODO */
-    (void) mutex;
-    return;
+    atomic_flag_clear(&mutex->flag);
+    
 }
 
+//Trying to aquire the lock
 int mtx_trylock(mtx_t *mutex)
 {
-    /* TODO */
-    (void) mutex;
-    return thrd_success;
+    if (atomic_flag_test_and_set(&mutex->flag)) {
+        
+        return thrd_success;
+    }
+
+    return thrd_error;
 }
 
+//acquiring the lock
 int mtx_lock(mtx_t *mutex)
-{
-    /* TODO */
-    (void) mutex;
+{ 
+    /* 1 = lock is being used. 0 = lock is acquired*/
+    while(atomic_flag_test_and_set(&mutex->flag)) {
+        thrd_yield();
+    }
+
     return thrd_success;
+
 }
 
+//releasing the lock
 int mtx_unlock(mtx_t *mutex)
 {
     /* TODO */
-    (void) mutex;
+    atomic_flag_clear(&mutex->flag);
     return thrd_success;
 }
 
