@@ -190,7 +190,7 @@ int mtx_trylock(mtx_t *mutex)
 int mtx_lock(mtx_t *mutex)
 { 
     /* 1 = lock is being used. 0 = lock is acquired*/
-    while(atomic_flag_test_and_set(&mutex->flag)) {
+    while(mtx_trylock(&mutex->flag)) {
         thrd_yield();
     }
 
