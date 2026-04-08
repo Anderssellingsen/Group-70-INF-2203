@@ -1,13 +1,13 @@
 #include "threads.h"
 
-#include <sys/syscall.h>
-#include <unistd.h>
-
 #include <stdio.h>
 #include <string.h>
 
 #include <core/compiler.h>
 #include <core/errno.h>
+
+#include <unistd.h>
+#include <sys/syscall.h>
 
 #if __linux__
 #define __USE_GNU
@@ -172,6 +172,65 @@ int mtx_unlock(mtx_t *mutex)
 {
     /* TODO */
     (void) mutex;
+    return thrd_success;
+}
+
+/* === Condition Variables === */
+
+int cnd_init(cnd_t *cond)
+{
+    /* TODO */
+    (void) cond; // Unused for now
+    return thrd_success;
+}
+
+void cnd_destroy(cnd_t *cond)
+{
+    /* TODO */
+    (void) cond; // Unused for now
+}
+
+int cnd_wait(cnd_t *cond, mtx_t *mutex)
+{
+    /* TODO */
+    (void) cond, (void) mutex; // Unused for now
+    return thrd_success;
+}
+
+int cnd_signal(cnd_t *cond)
+{
+    /* TODO */
+    (void) cond; // Unused for now
+    return thrd_success;
+}
+
+int cnd_broadcast(cnd_t *cond)
+{
+    /* TODO */
+    (void) cond; // Unused for now
+    return thrd_success;
+}
+
+/* === Barriers === */
+
+int brr_init(brr_t *b, size_t n)
+{
+    /* TODO */
+    (void) b, (void) n; // Unused for now
+    return thrd_success;
+}
+
+int brr_destroy(brr_t *b)
+{
+    /* TODO */
+    (void) b; // Unused for now
+    return thrd_success;
+}
+
+int brr_wait(brr_t *b)
+{
+    /* TODO */
+    (void) b; // Unused for now
     return thrd_success;
 }
 

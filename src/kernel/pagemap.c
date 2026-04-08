@@ -1,4 +1,9 @@
+//#define LOG_LEVEL LOG_DEBUG
+//#define LOG_LEVEL LOG_TRACE
+
 #include "pagemap.h"
+
+#include "process.h"
 
 #include <abi.h>
 #include <cpu.h>
@@ -11,7 +16,7 @@
 #include <core/sprintf.h>
 #include <core/string.h>
 
-#define PHYSPAGES_MAX 5
+#define PHYSPAGES_MAX 32
 
 struct addrspc kernel_addrspc;
 
@@ -253,6 +258,10 @@ int addrspc_init(struct addrspc *space)
 
 int addrspc_cleanup(struct addrspc *space)
 {
+    /* If this is the currently active address space,
+     * switch to the default kernel space. */
+    if (pm_get_root() == space->root_entry)
+        pm_set_root(kernel_addrspc.root_entry);
     return addrspc_unmap(space, 0, SIZE_MAX);
 }
 

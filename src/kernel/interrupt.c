@@ -24,6 +24,11 @@ static void handle_exception(ivec_t ivec, struct intrdata *idata)
             ivec_name(ivec),
             (intrdata_tostr(dbgbuf, dbgsz, ivec, idata), dbgbuf)
     );
+    pme_t pm_root = pm_get_root();
+    pr_error(
+            "PM root:\t" FMT_PME " (%s)\n", pm_root,
+            (pme_tostr(dbgbuf, dbgsz, pm_root, PM_LVL_ROOT), dbgbuf)
+    );
 
     /* Kill current process. */
     process_kill(current_process);
@@ -88,12 +93,6 @@ int init_int_controller(void)
     /* Initialize Interrupt Controller. */
     pic_init(IVEC_IRQ_0);
     pic_set_mask(~IRQS_TO_ENABLE); // PIC mask is set-to-block, clear-to-enable
-
-#if OM_IRQ_SET_LEVEL_MODE
-    /* Set level mode interrupt detection for PCI lines ICH spec */
-    outb(0x28, 0x4d0);
-    outb(0x0e, 0x4d1);
-#endif
 
     return 0;
 }

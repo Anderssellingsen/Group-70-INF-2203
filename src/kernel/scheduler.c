@@ -1,4 +1,5 @@
 //#define LOG_LEVEL LOG_DEBUG
+//#define LOG_LEVEL LOG_TRACE
 
 #include "scheduler.h"
 
@@ -41,13 +42,13 @@ static struct thread *choose_next_thread(void)
     for (;;) {
         const size_t DBGSZ = 256;
         char         dbgbuf[DBGSZ];
-        pr_debug(
+        pr_trace(
                 "ready_queue: %s\n",
                 (tqueue_tostr(dbgbuf, DBGSZ, &ready_queue), dbgbuf)
         );
 
         struct thread *t =
-                list_first_entry(&ready_queue, struct thread, queue);
+                list_first_entry_or_null(&ready_queue, struct thread, queue);
 
         if (!t) {
             pr_error("ready_queue empty; no threads to run\n");

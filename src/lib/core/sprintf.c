@@ -430,7 +430,11 @@ process_conversion(char *s, char *t, const char **fmt, va_list *args)
     }
 }
 
-/** Inner sprintf implementation */
+/**
+ * Inner sprintf implementation
+ *
+ * \callergraph
+ */
 static int snprintf_impl(char *s, size_t n, const char *fmt, va_list *args)
 {
     char *bufstart = s;                  // Save start of buffer for later.
@@ -465,7 +469,7 @@ static int snprintf_impl(char *s, size_t n, const char *fmt, va_list *args)
 /**
  * Print to bounded string buffer, with args from va_list.
  *
- * @callergraph
+ * \callgraph
  */
 int vsnprintf(char *s, size_t n, const char *format, va_list args)
 {
@@ -479,7 +483,7 @@ int vsnprintf(char *s, size_t n, const char *format, va_list args)
 /**
  * Print to bounded string buffer.
  *
- * @callgraph
+ * \callgraph
  */
 ATTR_PRINTFLIKE(3, 4)
 int snprintf(char *s, size_t n, const char *format, ...)
@@ -494,8 +498,7 @@ int snprintf(char *s, size_t n, const char *format, ...)
 /**
  * Print to string buffer, with args from va_list
  *
- * @callergraph
- * @callgraph
+ * \callgraph
  */
 int vsprintf(char *s, const char *format, va_list args)
 {
@@ -505,7 +508,7 @@ int vsprintf(char *s, const char *format, va_list args)
 /**
  * Print to string buffer.
  *
- * @callgraph
+ * \callgraph
  */
 ATTR_PRINTFLIKE(2, 3)
 int sprintf(char *s, const char *format, ...)

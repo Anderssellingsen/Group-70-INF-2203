@@ -12,6 +12,8 @@
 #include <core/string.h>
 #include <core/types.h>
 
+#include <dirent.h>
+
 #include <stdint.h>
 
 /** @name CPIO mode field bits */
@@ -174,7 +176,7 @@ static int cpioh_decode_sizes(struct cpio_header *h)
     return -EINVAL;
 }
 
-/** Convert CPIO mode field to @ref dirtype value */
+/** Convert CPIO mode field to dirent type value */
 static int cpio_mode_to_dirtype(unsigned mode)
 {
     switch (mode & CM_FT_MASK) {

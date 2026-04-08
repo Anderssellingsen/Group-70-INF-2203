@@ -3,6 +3,8 @@
 
 #include <cpu_pagemap.h>
 
+#include <core/list.h>
+
 struct physpage {
     paddr_t paddr;
     void   *vaddr;

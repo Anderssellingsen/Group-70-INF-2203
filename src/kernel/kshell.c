@@ -393,7 +393,7 @@ int kshell_read_exec(struct kshell *sh)
     /* Parse line into arguments. */
     char *argv[SH_ARGVSZ];
     int   argc = sh_break_cmdline(linebuf, argv, SH_ARGVSZ);
-    reporterr(sh, res, "could not parse command line\n");
+    reporterr(sh, argc, "could not parse command line\n");
     if (argc < 0) return argc;
     if (argc == 0) return -EAGAIN;
 

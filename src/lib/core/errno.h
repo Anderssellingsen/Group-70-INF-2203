@@ -1,34 +1,32 @@
 /* clang-format off */
+/**
+ * @file
+ * System error numbers
+ *
+ * @see
+ *
+ *  - `man 3 errno`
+ *
+ *  - glibc documentation, with more explanation of how the codes are used:
+ *    <https://sourceware.org/glibc/manual/latest/html_node/Error-Codes.html>
+ *
+ *  - POSIX standard:
+ *    <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/errno.h.html>
+ */
+
+/* === If not Munix, defer to host OS's version of this header === */
 
 #if !__munix__
-/*
- * Defer to system's errno.h to ensure we get matching error numbers.
- *
- * Note: It is important to keep this #include_next directive outside
- * of the whole-file #ifndef guards. That way, we always follow to the
- * next <errno.h>, even if the next <errno.h> is a copy of this one.
- * We want to follow through the copy and then on to the system's <errno.h>.
- */
 #include_next <errno.h>
 #endif
 
-#ifndef KERRNO_H
-#define KERRNO_H
-/**
- * @file
- *
- * System error numbers <errno.h>
- *
- * The C standard defines only three error codes: EDOM, EILSEQ, and ERANGE.
- * See: <https://en.cppreference.com/w/c/error/errno_macros>
- *
- * The POSIX standard defines many more.
- * See: <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/errno.h.html>
- *
- * For more detailed explanations of how the different codes are typically
- * used, the GNU libc documentation for Error Codes is a good resource.
- * <https://sourceware.org/glibc/manual/latest/html_node/Error-Codes.html>
- *
+/* === Definitions for Munix= === */
+
+#if __munix__
+#ifndef MUNIX_ERRNO_H
+#define MUNIX_ERRNO_H
+
+/*
  * Error codes that we do not use are commented out.
  * You can uncomment them to use them.
  *
@@ -36,7 +34,6 @@
  *  using tools in the staff repository.)
  */
 
-#if __munix__
 
 /** @name Required by C Standard (C99) */
 ///@{
@@ -135,7 +132,7 @@
 ///@{
 #define ENOTTY           45 ///< Inappropriate I/O control operation.
 ///@}
-#endif /* __munix__ */
 
-#endif /* KERRNO_H */
+#endif /* MUNIX_ERRNO_H */
+#endif /* __munix__ */
 /* clang-format on */

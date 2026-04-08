@@ -1,3 +1,6 @@
+//#define LOG_LEVEL LOG_DEBUG
+//#define LOG_LEVEL LOG_TRACE
+
 #include "process.h"
 
 #include "kernel.h"
@@ -31,6 +34,8 @@ struct thread       *current_thread;
 
 #define KSTACKSZ 4096
 unsigned char kstacks[THREAD_MAX][KSTACKSZ] ATTR_ALIGNED(KSTACKSZ);
+
+#define ARGVSZ 16
 
 /* === Thread Allocation/Initialization === */
 
@@ -117,7 +122,7 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
         /* Set permissions for segment pages. */
         uintptr_t vaddr = ALIGN_DOWN(phdr.p_vaddr, PAGESZ);
         uintptr_t paddr = vaddr;
-        size_t    size = ALIGN_UP(phdr.p_vaddr + phdr.p_memsz, PAGESZ) - vaddr;
+        size_t size = ALIGN_UP(phdr.p_vaddr + phdr.p_memsz, PAGESZ) - vaddr;
 
         pme_t flags = PME_USER;
         if (phdr.p_flags & PF_W) flags |= PME_W;
@@ -139,7 +144,6 @@ error:
 void process_close(struct process *p)
 {
     if (p == current_process) current_process = NULL;
-    pm_set_root(kernel_addrspc.root_entry);
     addrspc_cleanup(&p->addrspc);
     file_close(&p->execfile);
     *p = (struct process){};
@@ -176,6 +180,44 @@ static char *push_str(ureg_t **stack, char *str)
     return dst;
 }
 
+/**
+ * Make a copy of a traditional 'argv' array of strings
+ *
+ * @param   dstbuf      A buffer to hold the copy's character data
+ * @param   dstbufsz    Size (in bytes) of the buffer
+ * @param   dst         A destination for the copy's string pointers
+ * @param   dstsz       Size (in pointers) of the dst array
+ * @param   argv        The vector of strings to copy.
+ *                      Should be terminated with a null pointer.
+ *
+ * @returns
+ *      argc, the count of argument strings copied.
+ *      Or, if there is an error, returns a negative error code.
+ */
+static int copy_argv(
+        char       *dstbuf,
+        size_t      dstbufsz,
+        char       *dst[],
+        size_t      dstsz,
+        const char *argv[]
+)
+{
+    char *pos = dstbuf, *end = dstbuf + dstbufsz;
+    for (size_t i = 0; i < dstsz && pos < end; i++) {
+        if (!argv[i]) {
+            dst[i] = NULL; // Null-terminate the copy or argv.
+            return i;
+        }
+
+        /* Copy arg. */
+        dst[i] = pos;
+        pos += snprintf(pos, BUFREM(pos, end), "%s", argv[i]);
+        pos++; // Start next string after previous terminator.
+    }
+
+    return -ENOMEM; // Out of space for dst pointers.
+}
+
 enum start_strategy {
     PSTART_CALL,
     PSTART_LAUNCH,
@@ -203,9 +245,16 @@ int process_start(struct process *p, int argc, char *argv[])
 void process_kill(struct process *p)
 {
     if (!p) return;
-    pr_debug("killing process %d (%s)\n", p->pid, p->name);
+    pr_info("killing process %d (%s)\n", p->pid, p->name);
     process_close(p);
-    if (p == current_process) kernel_noreturn();
+    kernel_noreturn();
+}
+
+ssize_t process_read(int fd, void *dst, size_t count)
+{
+    if (fd < 0 || fd >= FD_MAX) return -EBADF;
+    if (!current_process || !current_process->fds[fd]) return -EBADF;
+    return file_read(current_process->fds[fd], dst, count);
 }
 
 /* === Thread Management === */
@@ -221,9 +270,10 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
             incoming->process->name
     );
 
-    /* Set current thread and set kstack on interrupt. */
+    /* Set current thread. */
     current_thread  = incoming;
     current_process = incoming->process;
+
     /* TODO: Set target kernel stack for incoming thread. */
 
     /* Low-level save/restore. */
@@ -292,3 +342,4 @@ int thread_preempt(void)
     TODO();
     return -ENOSYS;
 }
+

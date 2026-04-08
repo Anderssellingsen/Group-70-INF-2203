@@ -68,8 +68,18 @@ int main(int argc, char *argv[])
     /* Join threads. */
     for (size_t i = 0; i < nthreads; i++) {
         printf("[%zu] joining thread %p...\n", i, utids[i]);
-        res = thrd_join(utids[i]);
-        if (res < 0) printf("[%zu] thrd_join error: %s\n", i, strerror(-res));
+#if __GLIBC__ && __STDC_HOSTED__
+        /* glibc's thrd_join takes exit code parameter */
+        int exit_code;
+        res = thrd_join(utids[i], &exit_code);
+#else
+        /* mulibc's thrd_join returns the exit code. */
+        int exit_code = res = thrd_join(utids[i]);
+#endif
+        if (res != thrd_success)
+            printf("[%zu] thrd_join error: %s\n", i, strerror(abs(res)));
+        else if (exit_code < 0)
+            printf("[%zu] thread exited w/ err: %s\n", i, strerror(abs(res)));
         else printf("[%zu] thrd_join OK\n", i);
     }
 

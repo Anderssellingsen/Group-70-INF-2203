@@ -1,12 +1,13 @@
 #include "process.h"
 
 #include <cpu.h>
-#include <sys/syscall.h>
 
 #include <drivers/log.h>
 
 #include <core/errno.h>
 #include <core/macros.h>
+
+#include <sys/syscall.h>
 
 long syscall_dispatch(
         long   number,
@@ -24,6 +25,7 @@ long syscall_dispatch(
     case SYS_MAX: break;
 
     case SYS_thrd_yield: return thread_yield();
+    case SYS_read: return process_read(arg1, (void *) arg2, arg3);
     }
 
     UNUSED(arg1), UNUSED(arg2), UNUSED(arg3);

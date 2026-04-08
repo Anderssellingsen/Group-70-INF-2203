@@ -51,30 +51,42 @@ IncludeCategories:
 
   # ISO C freestanding headers
   - Regex:  '^[<"](float|iso646|limits|stdalign|stdarg|stdbit|stdbool|stddef|stdint|stdnoreturn)\.h[>"]$'
-    SortPriority: 65
+    SortPriority: 75
     Priority: 70
 
   # Additional headers that GCC provides in freestanding omde
   - Regex:  '^[<"](cet|cpuid|gcov|stdatomic|unwind)\.h[>"]$'
-    SortPriority: 60
+    SortPriority: 70
     Priority: 70
+
+  # --- System headers (provided by Linux / Munix) ---
+
+  # Sys headers
+  - Regex:  '^[<"]sys/.*\.h[>"]$'
+    SortPriority: 65
+    Priority: 60
+
+  # POSIX headers that system-y
+  - Regex:  '^[<"](dirent|unistd)\.h[>"]$'
+    SortPriority: 60
+    Priority: 60
 
   # --- Kernel library headers (lower level) ---
 
   # Core library
   - Regex:  '^<core/.*\.h>$'
-    SortPriority: 50
-    Priority: 50
+    SortPriority: 55
+    Priority: 55
 
   # Arch library
   - Regex:  '^<arch/.*\.h>$'
-    SortPriority: 45
-    Priority: 40
+    SortPriority: 53
+    Priority: 50
 
   # Drivers library
   - Regex:  '^<drivers/.*\.h>$'
-    SortPriority: 40
-    Priority: 40
+    SortPriority: 52
+    Priority: 50
 
   # --- Standard library headers ---
 

@@ -63,10 +63,10 @@ enum log_level {
  * - When compiling for another OS, such as Linux, the default level is
  *      @ref LOG_ERROR. This is to reduce log output noise during unit testing.
  */
-#if !defined(LOG_LEVEL) && !__HOSTED__
+#if !defined(LOG_LEVEL) && !__STDC_HOSTED__
 #define LOG_LEVEL LOG_INFO
 #endif
-#if !defined(LOG_LEVEL) && __HOSTED__
+#if !defined(LOG_LEVEL) && __STDC_HOSTED__
 #define LOG_LEVEL LOG_ERROR
 #endif
 

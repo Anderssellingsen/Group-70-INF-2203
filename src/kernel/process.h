@@ -48,6 +48,7 @@ struct process {
     /* Threads in process */
     int              threadct_active; ///< Count of non-exited threads
     struct list_head threads;
+
 };
 
 struct thread {
@@ -70,6 +71,7 @@ struct thread {
     /* Stats */
     int yield_ct;
     int preempt_ct;
+
 };
 
 extern struct process *current_process;
@@ -83,6 +85,7 @@ void process_close(struct process *p);
 void process_kill(struct process *p);
 _Noreturn void process_exit(int status);
 ssize_t        process_write(int fd, const void *src, size_t count);
+ssize_t process_read(int fd, void *dst, size_t count);
 
 int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack);
 int thread_switch(struct thread *outgoing, struct thread *incoming);

@@ -59,7 +59,9 @@ doxygen_docs := $(shell find . -name '*.md' -o -name '*.dox')
 doc: $(doxygen_html)
 $(doxygen_html): Doxyfile doxygen-filter.sh $(doxygen_srcs) $(doxygen_docs) \
 		| out/$(target)/Makefile
-	doxygen
+	(cat Doxyfile \
+		&& echo 'PREDEFINED = __munix__ __i386__') \
+		| doxygen -
 
 # Code Formatting
 # ======================================================================

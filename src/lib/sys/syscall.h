@@ -15,6 +15,9 @@ enum syscall_nr {
     SYS_thrd_exit,
     SYS_thrd_join,
     SYS_thrd_yield,
+    SYS_read,
+    SYS_proc_spawn_munix, ///< Custom process spawn syscall for Munix
+    SYS_wait4,
     SYS_MAX
 };
 #endif /* __munix__ */

@@ -222,6 +222,8 @@ static inline void list_del(struct list_head *item)
 /**
  * Get a pointer to the first entry in a list
  *
+ * N.B. List must not be empty.
+ *
  * @param   ptr     Pointer to list_head.
  * @param   type    The type of the item struct.
  * @param   member  The name of the list_head field within that struct type.
@@ -234,6 +236,8 @@ static inline void list_del(struct list_head *item)
 /**
  * Get a pointer to the last entry in a list
  *
+ * N.B. List must not be empty.
+ *
  * @param   ptr     Pointer to list_head.
  * @param   type    The type of the item struct.
  * @param   member  The name of the list_head field within that struct type.
@@ -242,6 +246,18 @@ static inline void list_del(struct list_head *item)
  */
 #define list_last_entry(ptr, type, member) \
     list_entry((ptr)->prev, type, member)
+
+/**
+ * Get a pointer to the first entry in a list, or null if list is empty
+ *
+ * @param   ptr     Pointer to list_head.
+ * @param   type    The type of the item struct.
+ * @param   member  The name of the list_head field within that struct type.
+ * @returns
+ *      A pointer to the item struct for the first item in the list.
+ */
+#define list_first_entry_or_null(ptr, type, member) \
+    (list_empty(ptr) ? NULL : list_first_entry(ptr, type, member))
 
 /**
  * Remove and return the first item in the list.

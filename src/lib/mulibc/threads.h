@@ -54,4 +54,35 @@ int  mtx_trylock(mtx_t *mutex);
 int  mtx_lock(mtx_t *mutex);
 int  mtx_unlock(mtx_t *mutex);
 
+/* === Condition Variables === */
+
+#define _CND_QUEUE_SZ 8
+
+struct _cnd {
+    /* TODO: Design condition variable struct */
+};
+
+typedef struct _cnd cnd_t; ///< Type for a user-side condition variable
+
+int  cnd_init(cnd_t *cond);
+void cnd_destroy(cnd_t *cond);
+int  cnd_wait(cnd_t *cond, mtx_t *mutex);
+int  cnd_signal(cnd_t *cond);
+int  cnd_broadcast(cnd_t *cond);
+
+/* === Barriers ===
+ * N.B. non-standard API */
+
+#define __MUNIX_BARRIERS__
+
+struct _brr {
+    /* TODO: Design barrier struct */
+};
+
+typedef struct _brr brr_t;
+
+int brr_init(brr_t *b, size_t n);
+int brr_destroy(brr_t *b);
+int brr_wait(brr_t *b);
+
 #endif /* THREADS_H */

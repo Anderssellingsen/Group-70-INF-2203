@@ -5,6 +5,9 @@
 #include <core/list.h>
 #include <core/types.h>
 
+#include <dirent.h>
+
+#include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -14,21 +17,6 @@
 #define SEEK_END 3
 
 #define DEBUGSTR_MAX 64
-#define PATH_MAX     128
-
-enum dirtype {
-    DT_UNKNOWN = 0, ///< Unknown file type
-    DT_CHR,         ///< Character device
-    DT_DIR,         ///< Directory
-    DT_REG,         ///< Regular file
-};
-
-/** Entry in a directory listing */
-struct dirent {
-    ino_t         d_ino;
-    unsigned char d_type;
-    char          d_name[PATH_MAX];
-};
 
 struct superblock {
     /** @name On-disk or filesystem-intrinsic data */
