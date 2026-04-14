@@ -46,6 +46,33 @@ static struct thread *thread_alloc(void)
     return NULL;
 }
 
+static int thread_init(
+        struct thread  *t,
+        struct process *p,
+        uintptr_t       start_addr,
+        uintptr_t       ustack
+)
+{
+    /* Reset struct. */
+    *t = (struct thread){
+            .process    = p,
+            .tid        = next_tid++,
+            .start_addr = start_addr,
+            .ustack     = ustack,
+            .runstate   = RS_NEW,
+    };
+
+    /* Allocate matching kernel stack. */
+    ptrdiff_t i = t - tcb;
+    t->kstack   = (uintptr_t) kstacks[i] + KSTACKSZ;
+
+    p->threadct_active++;
+    list_add_tail(&t->process_threads, &p->threads);
+
+    sched_add(t);
+    return 0;
+}
+
 static void thread_close(struct thread *t)
 {
     pr_debug("destroying thread %d (%s)\n", t->tid, t->process->name);
@@ -77,17 +104,13 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
 
     /* Set stack addresses. */
     p->ustack = USTACK_DFLT;
-    /* Allocate matching kernel stack. */
-    ptrdiff_t i = p - pcb;
-    p->kstack   = (uintptr_t) kstacks[i] + KSTACKSZ;
 
     res = addrspc_init(&p->addrspc);
     if (res < 0) goto error;
 
         /* Use this address space.
      * We'll need to update the address space as we load the ELF segments. */
-        //TODO: Turn this on when ready
-        //pm_set_root(p->addrspc.root_entry);
+    pm_set_root(p->addrspc.root_entry);
 
     /* Make user stack writeable. */
     size_t    ustack_sz = PAGESZ;
@@ -127,10 +150,12 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
         pme_t flags = PME_USER;
         if (phdr.p_flags & PF_W) flags |= PME_W;
 
-            // TODO: set flags appropriately for ELF segment
+        res = addrspc_map(&p->addrspc, (void *) vaddr, paddr, size, flags);
+        if (res < 0) goto error;
 
             /* Load. */
-        TODO();
+        res = elf_load_seg32(&p->execfile, &phdr);
+        if (res < 0) goto error;
     }
 
     return 0;
@@ -143,6 +168,11 @@ error:
 
 void process_close(struct process *p)
 {
+    struct thread *t, *n;
+    list_for_each_entry_safe(t, n, &p->threads, process_threads)
+    {
+        thread_close(t);
+    }
     if (p == current_process) current_process = NULL;
     addrspc_cleanup(&p->addrspc);
     file_close(&p->execfile);
@@ -178,6 +208,32 @@ static char *push_str(ureg_t **stack, char *str)
 
     strcpy(dst, str);
     return dst;
+}
+
+static void push_args(ureg_t **sp, int argc, char *argv[])
+{
+    switch (STACK_DIR) {
+    case STACK_DOWN: {
+        /* Push string data onto stack. */
+        char *new_argv[argc];
+        for (int i = 0; i < argc; i++) new_argv[i] = push_str(sp, argv[i]);
+
+        /* Push a separating zero. */
+        PUSH(*sp, 0);
+
+        /* Push new argv[] pointers. */
+        for (int i = argc - 1; i >= 0; i--) PUSH(*sp, (ureg_t) new_argv[i]);
+
+        /* Push argc. */
+        PUSH(*sp, argc);
+        break;
+    }
+
+    default: {
+        TODO();
+        kernel_noreturn();
+    }
+    };
 }
 
 /**
@@ -226,16 +282,32 @@ enum start_strategy {
 
 int process_start(struct process *p, int argc, char *argv[])
 {
-    enum start_strategy start_strat = PSTART_CALL;
+    enum start_strategy start_strat = PSTART_THREAD;
 
     current_process = p;
 
     switch (start_strat) {
     case PSTART_CALL: {
         /* Start process via simple function call. */
-        UNUSED(p), UNUSED(argc), UNUSED(argv);
-        TODO();
-        return -ENOTSUP;
+        main_fn *entry = (void *) p->start_addr;
+        pr_debug("%s: calling to %p to start ...\n", argv[0], entry);
+        int res = entry(argc, argv);
+        pr_debug("%s: returned %d\n", argv[0], res);
+        return res;
+    }
+    case PSTART_LAUNCH: {
+        /* Launch process by switching to user stack and user privilege. */
+        push_args((ureg_t **) &p->ustack, argc, argv);
+        cpu_user_kstack_set(p->kstack);
+        cpu_user_start(p->start_addr, p->ustack);
+        /* Will not return. */
+    }
+    case PSTART_THREAD: {
+        /* Launch process by creating process's first thread. */
+        push_args((ureg_t **) &p->ustack, argc, argv);
+        int res = thread_create(p, p->start_addr, p->ustack);
+        schedule();
+        return res;
     }
     };
 
@@ -248,6 +320,22 @@ void process_kill(struct process *p)
     pr_info("killing process %d (%s)\n", p->pid, p->name);
     process_close(p);
     kernel_noreturn();
+}
+
+_Noreturn void process_exit(int status)
+{
+    pr_info("process %d (%s) exited with status %d\n", current_process->pid,
+            current_process->name, status);
+
+    process_close(current_process);
+    kernel_noreturn();
+}
+
+ssize_t process_write(int fd, const void *src, size_t count)
+{
+    if (fd < 0 || fd >= FD_MAX) return -EBADF;
+    if (!current_process || !current_process->fds[fd]) return -EBADF;
+    return file_write(current_process->fds[fd], src, count);
 }
 
 ssize_t process_read(int fd, void *dst, size_t count)
@@ -274,7 +362,7 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
     current_thread  = incoming;
     current_process = incoming->process;
 
-    /* TODO: Set target kernel stack for incoming thread. */
+    cpu_user_kstack_set((uintptr_t) incoming->kstack);
 
     /* Low-level save/restore. */
     if (outgoing && cpu_task_save(&outgoing->saved_state) != 0) {
@@ -293,8 +381,9 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
      * Now switch to incoming thread. */
     switch (incoming->runstate) {
     case RS_NEW:
-        /* TODO: update run state and launch thread */
-        return -ENOSYS;
+        incoming->runstate = RS_READY;
+        cpu_user_start(incoming->start_addr, incoming->ustack);
+        /* No return. */
 
     case RS_READY:
         cpu_task_restore(&incoming->saved_state, 1);
@@ -312,34 +401,99 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
 
 int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack)
 {
-    TODO();
-    UNUSED(p), UNUSED(start_addr), UNUSED(ustack);
-    return -ENOSYS;
+    int res;
+
+    struct thread *t = thread_alloc();
+    if (!t) return -ENOMEM;
+    res = thread_init(t, p, start_addr, ustack);
+    if (res < 0) goto error;
+
+    pr_debug(
+            "thread %d (%s) created: start_addr=%p, ustack=%p, kstack=%p\n",
+            t->tid, p->name, (void *) t->start_addr, (void *) t->ustack,
+            (void *) t->kstack
+    );
+    return t->tid;
+
+error:
+    if (t) thread_close(t);
+    return res;
 }
 
 _Noreturn void thread_exit(int status)
 {
-    TODO();
-    UNUSED(status);
+    pr_debug(
+            "thread %d (%s) exited with status %d\n", current_thread->tid,
+            current_thread->process->name, status
+    );
+
+    current_thread->exit_status = status;
+    current_thread->runstate = RS_EXITED;
+
+    /* If this is the last thread in the process, exit the process. */
+    current_thread->process->threadct_active--;
+    if (current_thread->process->threadct_active == 0) {
+        pr_debug(
+                "process %d (%s) last thread exited\n",
+                current_thread->process->pid, current_thread->process->name
+        );
+        process_exit(status);
+    }
+
+    /* Run a different thread. */
+    schedule();
+
+    pr_error(
+            "Returned to exited thread %d (%s).\n", current_thread->tid,
+            current_thread->process->name
+    );
     kernel_noreturn();
+}
+
+static struct thread *process_find_thread(struct process *p, pid_t tid)
+{
+    struct thread *t;
+    list_for_each_entry(t, &p->threads, process_threads)
+    {
+        if (t->tid == tid) return t;
+    }
+    return NULL;
 }
 
 int thread_join(pid_t tid)
 {
-    TODO();
-    UNUSED(tid);
-    return -ENOSYS;
+    struct thread *t = process_find_thread(current_process, tid);
+    if (!t) {
+        pr_error("process %s has no thread %d\n", current_process->name, tid);
+        return -ESRCH;
+    }
+
+    /* Wait for target thread to exit. */
+    while (t->runstate != RS_EXITED) {
+        thread_yield();
+    }
+
+    pr_debug(
+            "thread %d (%s) joined thread %d with exit status %d\n",
+            current_thread->tid, current_thread->process->name, t->tid,
+            t->exit_status
+    );
+    int exit_status = t->exit_status;
+    thread_close(t);
+    return exit_status;
 }
 
 int thread_yield(void)
 {
-    TODO();
-    return -ENOSYS;
+    current_thread->yield_ct++;
+    schedule();
+    return 0;
 }
 
 int thread_preempt(void)
 {
-    TODO();
-    return -ENOSYS;
+    current_thread->preempt_ct++;
+    schedule();
+    return 0;
 }
 

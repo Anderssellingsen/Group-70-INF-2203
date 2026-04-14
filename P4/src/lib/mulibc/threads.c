@@ -141,37 +141,36 @@ void thrd_yield(void)
 
 int mtx_init(mtx_t *mutex, int type)
 {
-    /* TODO */
-    (void) mutex;
-    (void) type;
+    atomic_flag_clear(&mutex->flag);
+    (void) type; // Unused (for now).
     return thrd_success;
 }
 
 void mtx_destroy(mtx_t *mutex)
 {
-    /* TODO */
-    (void) mutex;
+    atomic_flag_clear(&mutex->flag);
     return;
 }
 
 int mtx_trylock(mtx_t *mutex)
 {
-    /* TODO */
-    (void) mutex;
-    return thrd_success;
+    int already_set = atomic_flag_test_and_set(&mutex->flag);
+    if (already_set) return thrd_busy; // Mutex was already locked
+    else return thrd_success;          // Mutex successfully locked by us
 }
 
 int mtx_lock(mtx_t *mutex)
 {
-    /* TODO */
-    (void) mutex;
-    return thrd_success;
+    for (;;) {
+        int res = mtx_trylock(mutex);
+        if (res == thrd_busy) thrd_yield();
+        else return res;
+    }
 }
 
 int mtx_unlock(mtx_t *mutex)
 {
-    /* TODO */
-    (void) mutex;
+    atomic_flag_clear(&mutex->flag);
     return thrd_success;
 }
 

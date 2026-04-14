@@ -96,7 +96,10 @@ long syscall_dispatch(
 _Noreturn void cpu_fresh_stack(void (*fn)(void), uintptr_t kstack);
 
 struct cpu_task_save {
-    /* TODO: Decide what state to save in struct */
+    void  *sp;
+    void  *ret_addr;
+    ureg_t nvregs[4];
+    char   fp_state[108];
 };
 
 ATTR_RETURNS_TWICE int cpu_task_save(struct cpu_task_save *save_state);

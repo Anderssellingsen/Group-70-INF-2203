@@ -58,7 +58,10 @@ struct thread {
     struct process  *process;
     struct list_head process_threads;
 
-    /* TODO: Other fields for thread? */
+    /* Start address and stacks */
+    uintptr_t start_addr;
+    uintptr_t ustack;
+    uintptr_t kstack;
 
     /* Run state */
     enum runstate        runstate;

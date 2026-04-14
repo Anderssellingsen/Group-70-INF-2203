@@ -80,9 +80,7 @@ First, let's set some variables that we will refer to later on:
 # Target architecture: i386 with a generic ELF-based ABI
 export CROSS_TARGET=i386-elf
 
-# Versions
-# As of January 2026, these versions match the versions
-# that are packaged in Ubuntu 24.04 LTS (noble).
+
 export BINUTILS_VERSION=2.40
 export GCC_VERSION=13.4.0
 export GDB_VERSION=15.2
@@ -106,9 +104,9 @@ your home directory, in `~/projects/uit-inf2203/`.
 You could do something like this:
 
 ```py
-export CROSS_SRC=$HOME/projects/uit-inf2203/cross_src
-export CROSS_BUILD=$HOME/projects/uit-inf2203/cross_build
-export CROSS_INSTALL=$HOME/projects/uit-inf2203/cross_install
+export CROSS_SRC=$HOME/Dokumenter/INF-2203/groupWork/P4/cross_src
+export CROSS_BUILD=$HOME/Dokumenter/INF-2203/groupWork/P4/cross_build
+export CROSS_INSTALL=$HOME/Dokumenter/INF-2203/groupWork/P4/cross_install
 
 # Make sure the directories exist.
 mkdir -p $CROSS_SRC $CROSS_BUILD $CROSS_INSTALL
