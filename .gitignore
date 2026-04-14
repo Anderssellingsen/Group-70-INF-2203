@@ -89,3 +89,19 @@ src_only/
 Makefile.buildas
 buildas.h
 .generated-project.*
+
+P4/cross_src
+P4/cross_build
+P4/cross_install
+P4/export   
+
+#For the reports
+Report/
+
+#Mac stuff
+P4/.DS_Store
+.DS_Store
+
+
+/INF-2203/.obsidian/workspace.json
+
