@@ -152,6 +152,9 @@ int addrspc_unmap_recursive(
         int lvl, pme_t *entry, size_t offsets[PM_LVL_MAX], size_t *size
 )
 {
+    struct physpage * page;
+    void * pAddr;
+
     /* If this entry is not present, there is nothing to do. */
     if (!pme_ispresent(*entry, lvl)) {
         *size -= MIN(pme_coversz(lvl), *size);
@@ -162,6 +165,11 @@ int addrspc_unmap_recursive(
     if (pm_mode->lvls[lvl + 1].is_page) {
         *entry &= ~PME_PRESENT;
         pme_map_trace(entry, lvl);
+
+        page = physpage_find(pme_paddr(*entry,lvl));
+        physpage_free(page);
+        //physpage_close(page); //Might cause an issue here. Need to check
+
         *size -= PAGESZ;
         return 0;
     }
@@ -238,6 +246,30 @@ int addrspc_map(
             0, &space->root_entry, offsets, &paddr, &size, flags
     );
 }
+
+int addrspc_map_alloc(        
+        struct addrspc *space,
+        void           *vaddr,
+        paddr_t         paddr,
+        size_t          size,
+        pme_t           flags
+)   
+{
+    int res;
+
+    uintptr_t vAddr = (uintptr_t) vaddr;
+
+    for(size_t offset= 0; offset < size; offset += PAGESZ) {
+        struct physpage * alloc_pg = physpage_alloc();
+        if(!paddr) return -ENOMEM;
+
+        res = addrspc_map(space, (void*)(vAddr + offset), alloc_pg->paddr, size, flags);
+        if(res < 0) return res; 
+    }
+     
+    return 0;
+}
+
 
 int addrspc_unmap(struct addrspc *space, void *vaddr, size_t size)
 {

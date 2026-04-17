@@ -116,7 +116,7 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
     size_t    ustack_sz = PAGESZ;
     uintptr_t ustack_low =
             STACK_DIR == STACK_DOWN ? p->ustack - ustack_sz : p->ustack;
-    res = addrspc_map(
+    res = addrspc_map_alloc(
             &p->addrspc, (void *) ustack_low, ustack_low, ustack_sz,
             PME_USER | PME_W
     );
@@ -150,7 +150,7 @@ int process_load_path(struct process *p, const char *cwd, const char *path)
         pme_t flags = PME_USER;
         if (phdr.p_flags & PF_W) flags |= PME_W;
 
-        res = addrspc_map(&p->addrspc, (void *) vaddr, paddr, size, flags);
+        res = addrspc_map_alloc(&p->addrspc, (void *) vaddr, paddr, size, flags);
         if (res < 0) goto error;
 
             /* Load. */

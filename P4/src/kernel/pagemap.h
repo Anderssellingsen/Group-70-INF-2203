@@ -31,6 +31,15 @@ int addrspc_map(
         size_t          size,
         pme_t           flags
 );
+
+int addrspc_map_alloc(
+        struct addrspc *space,
+        void           *vaddr,
+        paddr_t         paddr,
+        size_t          size,
+        pme_t           flags
+);
+
 int addrspc_unmap(struct addrspc *space, void *vaddr, size_t size);
 
 int init_pm(void);
