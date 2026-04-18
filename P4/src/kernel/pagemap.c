@@ -33,7 +33,10 @@ struct physpage *physpage_alloc(void)
     return NULL;
 }
 
-void physpage_free(struct physpage *page) { page->paddr = 0; }
+void physpage_free(struct physpage *page) { 
+    pr_debug("\t Deallocating physical page at: " FMT_PADDR "\n", page->paddr);
+    page->paddr = 0;
+}
 
 struct physpage *physpage_find(paddr_t paddr)
 {
@@ -152,7 +155,7 @@ int addrspc_unmap_recursive(
         int lvl, pme_t *entry, size_t offsets[PM_LVL_MAX], size_t *size
 )
 {
-    struct physpage * page;
+    
     void * pAddr;
 
     /* If this entry is not present, there is nothing to do. */
@@ -163,11 +166,12 @@ int addrspc_unmap_recursive(
 
     /* If this entry points to a page, mark it as not present. */
     if (pm_mode->lvls[lvl + 1].is_page) {
+        paddr_t paddr = pme_paddr(*entry,lvl);
+        struct physpage * page = physpage_find(pme_paddr(*entry,lvl));
         *entry &= ~PME_PRESENT;
         pme_map_trace(entry, lvl);
-
-        page = physpage_find(pme_paddr(*entry,lvl));
-        physpage_free(page);
+        if(page) physpage_free(page);
+        
         //physpage_close(page); //Might cause an issue here. Need to check
 
         *size -= PAGESZ;
@@ -261,9 +265,10 @@ int addrspc_map_alloc(
 
     for(size_t offset= 0; offset < size; offset += PAGESZ) {
         struct physpage * alloc_pg = physpage_alloc();
-        if(!paddr) return -ENOMEM;
+        alloc_pg->vaddr = vAddr + offset;
+        if(!alloc_pg) return -ENOMEM;
 
-        res = addrspc_map(space, (void*)(vAddr + offset), alloc_pg->paddr, size, flags);
+        res = addrspc_map(space, alloc_pg->vaddr, alloc_pg->paddr, PAGESZ, flags);
         if(res < 0) return res; 
     }
      
