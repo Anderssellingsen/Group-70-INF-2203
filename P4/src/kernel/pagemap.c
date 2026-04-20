@@ -36,6 +36,7 @@ struct physpage *physpage_alloc(void)
 void physpage_free(struct physpage *page) { 
     pr_debug("\t Deallocating physical page at: " FMT_PADDR "\n", page->paddr);
     page->paddr = 0;
+    page->vaddr = 0;
 }
 
 struct physpage *physpage_find(paddr_t paddr)
@@ -167,7 +168,7 @@ int addrspc_unmap_recursive(
     /* If this entry points to a page, mark it as not present. */
     if (pm_mode->lvls[lvl + 1].is_page) {
         paddr_t paddr = pme_paddr(*entry,lvl);
-        struct physpage * page = physpage_find(pme_paddr(*entry,lvl));
+        struct physpage * page = physpage_find(paddr);
         *entry &= ~PME_PRESENT;
         pme_map_trace(entry, lvl);
         if(page) physpage_free(page);
@@ -290,6 +291,7 @@ int addrspc_unmap(struct addrspc *space, void *vaddr, size_t size)
 int addrspc_init(struct addrspc *space)
 {
     /* Set up kernel mapping. */
+    
     return addrspc_map(space, KMAP_MIN, KMAP_MIN, KMAP_MAX - KMAP_MIN, 0);
 }
 
@@ -299,7 +301,17 @@ int addrspc_cleanup(struct addrspc *space)
      * switch to the default kernel space. */
     if (pm_get_root() == space->root_entry)
         pm_set_root(kernel_addrspc.root_entry);
-    return addrspc_unmap(space, 0, SIZE_MAX);
+    
+    int res = addrspc_unmap(space, (void *)KMAP_MAX, SIZE_MAX);
+    return res;
+    
+}
+
+int addrspc_clean_test() {
+    
+    for(int i = 0; i < PHYSPAGES_MAX - 2; i++ ){
+    }
+
 }
 
 int init_pm(void)

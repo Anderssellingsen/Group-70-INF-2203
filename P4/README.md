@@ -5,3 +5,6 @@ Issue with the first task:
 
 --- 
 I have discovered that the same thread is being executed over and over again. On the second attempt, *process pointer* in <ins>process_load_path</ins> is empty. Therefore it caused page fault while running <ins>addrspc_init</ins>
+
+![alt text](image.png)
+![alt text](image-1.png)
