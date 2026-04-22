@@ -22,6 +22,8 @@ struct addrspc kernel_addrspc;
 
 static struct physpage physpages[PHYSPAGES_MAX];
 
+static int addrspc_free_tables_recursive(int lvl, pme_t entry);
+
 struct physpage *physpage_alloc(void)
 {
     for (unsigned i = 0; i < PHYSPAGES_MAX; i++) {
@@ -33,8 +35,9 @@ struct physpage *physpage_alloc(void)
     return NULL;
 }
 
-void physpage_free(struct physpage *page) { 
-    pr_debug("\t Deallocating physical page at: " FMT_PADDR "\n", page->paddr);
+void physpage_free(struct physpage *page)
+{
+    pr_debug("\tdeallocating physical page at: " FMT_PADDR "\n", page->paddr);
     page->paddr = 0;
     page->vaddr = 0;
 }
@@ -75,8 +78,8 @@ static void pme_map_trace(pme_t *entry, int lvl)
     char         dbgbuf[DBGSZ];
 
     const char *lvlname = pm_mode->lvls[lvl].name;
-    pme_t *tbl_start = (void *) ALIGN_DOWN((uintptr_t) entry, pm_tblsz(lvl));
-    size_t offset    = entry - tbl_start;
+    pme_t *tbl_start    = (void *) ALIGN_DOWN((uintptr_t) entry, pm_tblsz(lvl));
+    size_t offset       = entry - tbl_start;
     pr_trace(
             "\t%-5s:%8p[%4zu] = " FMT_PME " (%s)\n", lvlname, tbl_start,
             offset, *entry, (pme_tostr(dbgbuf, DBGSZ, *entry, lvl), dbgbuf)
@@ -156,24 +159,21 @@ int addrspc_unmap_recursive(
         int lvl, pme_t *entry, size_t offsets[PM_LVL_MAX], size_t *size
 )
 {
-    
-    void * pAddr;
-
     /* If this entry is not present, there is nothing to do. */
     if (!pme_ispresent(*entry, lvl)) {
         *size -= MIN(pme_coversz(lvl), *size);
         return 0;
     }
 
-    /* If this entry points to a page, mark it as not present. */
+    /* If this entry points to a page, unmap it and free the backing page. */
     if (pm_mode->lvls[lvl + 1].is_page) {
-        paddr_t paddr = pme_paddr(*entry,lvl);
-        struct physpage * page = physpage_find(paddr);
+        paddr_t          paddr = pme_paddr(*entry, lvl);
+        struct physpage *page  = physpage_find(paddr);
+
         *entry &= ~PME_PRESENT;
         pme_map_trace(entry, lvl);
-        if(page) physpage_free(page);
-        
-        //physpage_close(page); //Might cause an issue here. Need to check
+
+        if (page) physpage_free(page);
 
         *size -= PAGESZ;
         return 0;
@@ -188,7 +188,7 @@ int addrspc_unmap_recursive(
     /* Find table for this level. */
     tbl_pg = physpage_find(pme_paddr(*entry, lvl));
     if (!tbl_pg) return -ENOMEM;
-    tbl = physpage_access(tbl_pg);
+    tbl    = physpage_access(tbl_pg);
     if (!tbl) return -ENOMEM;
 
     /* Loop through mappings on table. */
@@ -252,30 +252,37 @@ int addrspc_map(
     );
 }
 
-int addrspc_map_alloc(        
+int addrspc_map_alloc(
         struct addrspc *space,
         void           *vaddr,
-        paddr_t         paddr,
         size_t          size,
         pme_t           flags
-)   
+)
 {
-    int res;
+    int       res;
+    uintptr_t va = ALIGN_DOWN((uintptr_t) vaddr, PAGESZ);
+    size = ALIGN_UP(size, PAGESZ);
 
-    uintptr_t vAddr = (uintptr_t) vaddr;
+    for (size_t offset = 0; offset < size; offset += PAGESZ) {
+        struct physpage *alloc_pg = physpage_alloc();
+        if (!alloc_pg) return -ENOMEM;
 
-    for(size_t offset= 0; offset < size; offset += PAGESZ) {
-        struct physpage * alloc_pg = physpage_alloc();
-        alloc_pg->vaddr = vAddr + offset;
-        if(!alloc_pg) return -ENOMEM;
+        /* Clear page contents before use. */
+        void *mem = physpage_access(alloc_pg);
+        memset(mem, 0, PAGESZ);
+        physpage_close(alloc_pg);
 
-        res = addrspc_map(space, alloc_pg->vaddr, alloc_pg->paddr, PAGESZ, flags);
-        if(res < 0) return res; 
+        res = addrspc_map(
+                space, (void *) (va + offset), alloc_pg->paddr, PAGESZ, flags
+        );
+        if (res < 0) {
+            physpage_free(alloc_pg);
+            return res;
+        }
     }
-     
+
     return 0;
 }
-
 
 int addrspc_unmap(struct addrspc *space, void *vaddr, size_t size)
 {
@@ -291,27 +298,55 @@ int addrspc_unmap(struct addrspc *space, void *vaddr, size_t size)
 int addrspc_init(struct addrspc *space)
 {
     /* Set up kernel mapping. */
-    
     return addrspc_map(space, KMAP_MIN, KMAP_MIN, KMAP_MAX - KMAP_MIN, 0);
 }
 
 int addrspc_cleanup(struct addrspc *space)
 {
-    /* If this is the currently active address space,
-     * switch to the default kernel space. */
     if (pm_get_root() == space->root_entry)
         pm_set_root(kernel_addrspc.root_entry);
-    
-    int res = addrspc_unmap(space, (void *)KMAP_MAX, SIZE_MAX);
-    return res;
-    
+
+    /* First free user-space leaf pages and any emptied user tables. */
+    int res = addrspc_unmap(space, (void *) KMAP_MAX, SIZE_MAX);
+    if (res < 0) return res;
+
+    /* Then free all remaining page-table pages, including kernel mapping tables
+     * and the root table for this address space. */
+    res = addrspc_free_tables_recursive(PM_LVL_ROOT, space->root_entry);
+    if (res < 0) return res;
+
+    space->root_entry = 0;
+    return 0;
 }
 
-int addrspc_clean_test() {
-    
-    for(int i = 0; i < PHYSPAGES_MAX - 2; i++ ){
+static int addrspc_free_tables_recursive(int lvl, pme_t entry)
+{
+    if (!pme_ispresent(entry, lvl)) return 0;
+
+    /* If next level is a page, this entry maps a leaf page.
+     * Do not free the mapped page here. */
+    if (pm_mode->lvls[lvl + 1].is_page) return 0;
+
+    struct physpage *tbl_pg = physpage_find(pme_paddr(entry, lvl));
+    if (!tbl_pg) return -ENOMEM;
+
+    pme_t *tbl = physpage_access(tbl_pg);
+    if (!tbl) return -ENOMEM;
+
+    int child_lvl = lvl + 1;
+    size_t entry_count = 1 << pm_mode->lvls[child_lvl].idx_bits;
+
+    for (size_t i = 0; i < entry_count; i++) {
+        int res = addrspc_free_tables_recursive(child_lvl, tbl[i]);
+        if (res < 0) {
+            physpage_close(tbl_pg);
+            return res;
+        }
     }
 
+    physpage_close(tbl_pg);
+    physpage_free(tbl_pg);
+    return 0;
 }
 
 int init_pm(void)

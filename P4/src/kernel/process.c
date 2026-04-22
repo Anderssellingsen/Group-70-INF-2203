@@ -7,7 +7,7 @@
 #include "scheduler.h"
 
 #include <abi.h>
-#include <cpu.h>
+#include <cpu.h>    
 #include <cpu_pagemap.h>
 
 #include <drivers/fileformat/elf.h>
@@ -53,7 +53,6 @@ static int thread_init(
         uintptr_t       ustack
 )
 {
-    /* Reset struct. */
     *t = (struct thread){
             .process    = p,
             .tid        = next_tid++,
@@ -62,7 +61,6 @@ static int thread_init(
             .runstate   = RS_NEW,
     };
 
-    /* Allocate matching kernel stack. */
     ptrdiff_t i = t - tcb;
     t->kstack   = (uintptr_t) kstacks[i] + KSTACKSZ;
 
@@ -77,11 +75,9 @@ static void thread_close(struct thread *t)
 {
     pr_debug("destroying thread %d (%s)\n", t->tid, t->process->name);
 
-    /* Remove from lists. */
     list_del(&t->process_threads);
     list_del(&t->queue);
 
-    /* Clear struct. */
     *t = (struct thread){};
 }
 
@@ -94,73 +90,78 @@ struct process *process_alloc(void)
     return NULL;
 }
 
+static struct process *process_find_pid(pid_t pid)
+{
+    for (int i = 0; i < PROCESS_MAX; i++)
+        if (pcb[i].pid == pid) return &pcb[i];
+    return NULL;
+}
+
 int process_load_path(struct process *p, const char *cwd, const char *path)
 {
-    int res, file_isopen = 0;
+    int   res, file_isopen = 0;
+    pme_t old_root = pm_get_root();
 
-    /* Reset struct. */
-    *p = (struct process){.pid = next_pid++};
+    *p = (struct process){
+            .pid         = next_pid++,
+            .parent_pid  = current_process ? current_process->pid : 0,
+            .state       = PS_RUNNING,
+            .exit_status = 0,
+    };
+    INIT_LIST_HEAD(&p->threads);
     path_basename(p->name, DEBUGSTR_MAX, path);
 
-    /* Set stack addresses. */
     p->ustack = USTACK_DFLT;
 
     res = addrspc_init(&p->addrspc);
     if (res < 0) goto error;
 
-        /* Use this address space.
-     * We'll need to update the address space as we load the ELF segments. */
     pm_set_root(p->addrspc.root_entry);
 
-    /* Make user stack writeable. */
-    size_t    ustack_sz = PAGESZ;
+    size_t    ustack_sz  = PAGESZ;
     uintptr_t ustack_low =
             STACK_DIR == STACK_DOWN ? p->ustack - ustack_sz : p->ustack;
+
     res = addrspc_map_alloc(
-            &p->addrspc, (void *) ustack_low, ustack_low, ustack_sz,
-            PME_USER | PME_W
+            &p->addrspc, (void *) ustack_low, ustack_sz, PME_USER | PME_W
     );
     if (res < 0) goto error;
 
-    /* Open file. */
     res = file_open_path(&p->execfile, cwd, path);
     if (res < 0) goto error;
     file_isopen = 1;
 
-    /* Read ELF header. */
     Elf32_Ehdr ehdr;
     res = elf_read_ehdr32(&p->execfile, &ehdr);
     if (res < 0) goto error;
     p->start_addr = ehdr.e_entry;
 
-    /* Load segments. */
     for (int i = 0; i < ehdr.e_phnum; i++) {
         Elf32_Phdr phdr;
         res = elf_read_phdr32(&p->execfile, &ehdr, i, &phdr);
         if (res < 0) goto error;
 
-        /* Skip non-load segments. */
         if (phdr.p_type != PT_LOAD) continue;
 
-        /* Set permissions for segment pages. */
         uintptr_t vaddr = ALIGN_DOWN(phdr.p_vaddr, PAGESZ);
-        uintptr_t paddr = vaddr;
-        size_t size = ALIGN_UP(phdr.p_vaddr + phdr.p_memsz, PAGESZ) - vaddr;
+        size_t    size =
+                ALIGN_UP(phdr.p_vaddr + phdr.p_memsz, PAGESZ) - vaddr;
 
         pme_t flags = PME_USER;
         if (phdr.p_flags & PF_W) flags |= PME_W;
 
-        res = addrspc_map_alloc(&p->addrspc, (void *) vaddr, paddr, size, flags);
+        res = addrspc_map_alloc(&p->addrspc, (void *) vaddr, size, flags);
         if (res < 0) goto error;
 
-            /* Load. */
         res = elf_load_seg32(&p->execfile, &phdr);
         if (res < 0) goto error;
     }
 
+    pm_set_root(old_root);
     return 0;
 
 error:
+    pm_set_root(old_root);
     addrspc_cleanup(&p->addrspc);
     if (file_isopen) file_close(&p->execfile);
     return res;
@@ -183,11 +184,6 @@ void process_close(struct process *p)
 
 typedef int main_fn(int argc, char *argv[]);
 
-/**
- * Push a string onto a stack
- *
- * Adjusts the stack pointer and returns a pointer to the start of the string.
- */
 static char *push_str(ureg_t **stack, char *str)
 {
     if (!str) return NULL;
@@ -197,12 +193,12 @@ static char *push_str(ureg_t **stack, char *str)
 
     switch (STACK_DIR) {
     case STACK_DOWN:
-        *stack -= slots;       // Make room for string.
-        dst = (char *) *stack; // Start of string is current position.
+        *stack -= slots;
+        dst = (char *) *stack;
         break;
     case STACK_UP:
-        dst = (char *) (*stack + 1); // Start of string is next slot.
-        *stack += slots;             // Adjust stack to end of string.
+        dst = (char *) (*stack + 1);
+        *stack += slots;
         break;
     }
 
@@ -214,17 +210,13 @@ static void push_args(ureg_t **sp, int argc, char *argv[])
 {
     switch (STACK_DIR) {
     case STACK_DOWN: {
-        /* Push string data onto stack. */
         char *new_argv[argc];
         for (int i = 0; i < argc; i++) new_argv[i] = push_str(sp, argv[i]);
 
-        /* Push a separating zero. */
         PUSH(*sp, 0);
 
-        /* Push new argv[] pointers. */
         for (int i = argc - 1; i >= 0; i--) PUSH(*sp, (ureg_t) new_argv[i]);
 
-        /* Push argc. */
         PUSH(*sp, argc);
         break;
     }
@@ -236,42 +228,27 @@ static void push_args(ureg_t **sp, int argc, char *argv[])
     };
 }
 
-/**
- * Make a copy of a traditional 'argv' array of strings
- *
- * @param   dstbuf      A buffer to hold the copy's character data
- * @param   dstbufsz    Size (in bytes) of the buffer
- * @param   dst         A destination for the copy's string pointers
- * @param   dstsz       Size (in pointers) of the dst array
- * @param   argv        The vector of strings to copy.
- *                      Should be terminated with a null pointer.
- *
- * @returns
- *      argc, the count of argument strings copied.
- *      Or, if there is an error, returns a negative error code.
- */
 static int copy_argv(
-        char       *dstbuf,
-        size_t      dstbufsz,
-        char       *dst[],
-        size_t      dstsz,
-        const char *argv[]
+        char              *dstbuf,
+        size_t             dstbufsz,
+        char              *dst[],
+        size_t             dstsz,
+        const char *const  argv[]
 )
 {
     char *pos = dstbuf, *end = dstbuf + dstbufsz;
     for (size_t i = 0; i < dstsz && pos < end; i++) {
         if (!argv[i]) {
-            dst[i] = NULL; // Null-terminate the copy or argv.
+            dst[i] = NULL;
             return i;
         }
 
-        /* Copy arg. */
         dst[i] = pos;
         pos += snprintf(pos, BUFREM(pos, end), "%s", argv[i]);
-        pos++; // Start next string after previous terminator.
+        pos++;
     }
 
-    return -ENOMEM; // Out of space for dst pointers.
+    return -ENOMEM;
 }
 
 enum start_strategy {
@@ -284,34 +261,80 @@ int process_start(struct process *p, int argc, char *argv[])
 {
     enum start_strategy start_strat = PSTART_THREAD;
 
-    current_process = p;
-
     switch (start_strat) {
     case PSTART_CALL: {
-        /* Start process via simple function call. */
+        current_process = p;
         main_fn *entry = (void *) p->start_addr;
         pr_debug("%s: calling to %p to start ...\n", argv[0], entry);
         int res = entry(argc, argv);
         pr_debug("%s: returned %d\n", argv[0], res);
         return res;
     }
+
     case PSTART_LAUNCH: {
-        /* Launch process by switching to user stack and user privilege. */
+        pme_t old_root = pm_get_root();
+        pm_set_root(p->addrspc.root_entry);
         push_args((ureg_t **) &p->ustack, argc, argv);
-        cpu_user_kstack_set(p->kstack);
-        cpu_user_start(p->start_addr, p->ustack);
-        /* Will not return. */
+        pm_set_root(old_root);
+        TODO();
+        kernel_noreturn();
     }
+
     case PSTART_THREAD: {
-        /* Launch process by creating process's first thread. */
+        pme_t old_root = pm_get_root();
+        pm_set_root(p->addrspc.root_entry);
         push_args((ureg_t **) &p->ustack, argc, argv);
-        int res = thread_create(p, p->start_addr, p->ustack);
-        schedule();
-        return res;
+        pm_set_root(old_root);
+
+        return thread_create(p, p->start_addr, p->ustack);
     }
     };
 
     return -ENOTSUP;
+}
+
+int process_spawn(const char *pathname, char *const argv[])
+{
+    int res;
+
+    if (!pathname || !argv) return -EINVAL;
+    if (!current_process) return -ESRCH;
+
+    struct process *child = process_alloc();
+    if (!child) return -ENOMEM;
+
+    char  pathbuf[PATH_MAX];
+    char  argbuf[256];
+    char *kargv[ARGVSZ];
+
+    snprintf(pathbuf, sizeof(pathbuf), "%s", pathname);
+
+    int argc = copy_argv(
+            argbuf, sizeof(argbuf), kargv, ARRAY_SIZE(kargv),
+            (const char *const *) argv
+    );
+    if (argc < 0) return argc;
+
+    res = process_load_path(child, "/", pathbuf);
+    if (res < 0) return res;
+
+    child->parent_pid = current_process->pid;
+
+    for (int i = 0; i < FD_MAX; i++) child->fds[i] = current_process->fds[i];
+
+    pme_t old_root = pm_get_root();
+    pm_set_root(child->addrspc.root_entry);
+    push_args((ureg_t **) &child->ustack, argc, kargv);
+    pm_set_root(old_root);
+
+    res = thread_create(child, child->start_addr, child->ustack);
+    if (res < 0) {
+        process_close(child);
+        return res;
+    }
+
+    pr_debug("process_spawn: spawned pid=%d (%s)\n", child->pid, child->name);
+    return child->pid;
 }
 
 void process_kill(struct process *p)
@@ -327,8 +350,53 @@ _Noreturn void process_exit(int status)
     pr_info("process %d (%s) exited with status %d\n", current_process->pid,
             current_process->name, status);
 
-    process_close(current_process);
+    current_process->exit_status = status;
+    current_process->state       = PS_EXITED;
+
+    if (current_thread) {
+        pr_debug("process_exit: marking tid=%d exited\n", current_thread->tid);
+        current_thread->exit_status = status;
+        current_thread->runstate    = RS_EXITED;
+    }
+
+    current_process->threadct_active = 0;
+
+    pr_debug("process_exit: scheduling away from exited process %d\n",
+             current_process->pid);
+
+    schedule();
+
+    pr_error("process_exit: returned to exited process %d (%s)\n",
+             current_process->pid, current_process->name);
     kernel_noreturn();
+}
+
+int process_wait(pid_t pid, int *wstatus, int options)
+{
+    UNUSED(options);
+
+    if (!current_process) return -ESRCH;
+
+    struct process *child = process_find_pid(pid);
+    if (!child) return -ESRCH;
+
+    if (child->parent_pid != current_process->pid) return -ESRCH;
+
+    pr_debug("process_wait: pid=%d waiting for child=%d\n",
+             current_process->pid, pid);
+
+    while (child->state != PS_EXITED) {
+        pr_debug("process_wait: child=%d still running, yielding\n", pid);
+        thread_yield();
+    }
+
+    if (wstatus) *wstatus = child->exit_status;
+
+    pr_debug("process_wait: child=%d exited status=%d\n",
+             pid, child->exit_status);
+
+    process_close(child);
+    return pid;
 }
 
 ssize_t process_write(int fd, const void *src, size_t count)
@@ -358,36 +426,29 @@ int thread_switch(struct thread *outgoing, struct thread *incoming)
             incoming->process->name
     );
 
-    /* Set current thread. */
     current_thread  = incoming;
     current_process = incoming->process;
 
+    pm_set_root(incoming->process->addrspc.root_entry);
+
     cpu_user_kstack_set((uintptr_t) incoming->kstack);
 
-    /* Low-level save/restore. */
     if (outgoing && cpu_task_save(&outgoing->saved_state) != 0) {
-        /* Non-zero return value indicates that we are resuming
-         * a saved thread. Return from here and follow saved thread's
-         * return path to where it yielded or was interrupted. */
         pr_trace("%d (%s) resumed\n", outgoing->tid, outgoing->process->name);
         return 0;
     } else if (outgoing) {
-        /* Zero return value indicates that the outgoing thread was
-         * saved successfully. Continue to restoring incoming thread. */
         pr_trace("%d (%s) saved\n", outgoing->tid, outgoing->process->name);
     }
 
-    /* No outgoing thread or successful save of outgoing thread.
-     * Now switch to incoming thread. */
     switch (incoming->runstate) {
     case RS_NEW:
         incoming->runstate = RS_READY;
         cpu_user_start(incoming->start_addr, incoming->ustack);
-        /* No return. */
+        kernel_noreturn();
 
     case RS_READY:
         cpu_task_restore(&incoming->saved_state, 1);
-        /* No return. */
+        kernel_noreturn();
 
     default:
         pr_error(
@@ -428,9 +489,8 @@ _Noreturn void thread_exit(int status)
     );
 
     current_thread->exit_status = status;
-    current_thread->runstate = RS_EXITED;
+    current_thread->runstate    = RS_EXITED;
 
-    /* If this is the last thread in the process, exit the process. */
     current_thread->process->threadct_active--;
     if (current_thread->process->threadct_active == 0) {
         pr_debug(
@@ -440,7 +500,6 @@ _Noreturn void thread_exit(int status)
         process_exit(status);
     }
 
-    /* Run a different thread. */
     schedule();
 
     pr_error(
@@ -468,7 +527,6 @@ int thread_join(pid_t tid)
         return -ESRCH;
     }
 
-    /* Wait for target thread to exit. */
     while (t->runstate != RS_EXITED) {
         thread_yield();
     }
@@ -485,6 +543,8 @@ int thread_join(pid_t tid)
 
 int thread_yield(void)
 {
+    pr_debug("thread_yield: tid=%d (%s)\n",
+             current_thread->tid, current_thread->process->name);
     current_thread->yield_ct++;
     schedule();
     return 0;
@@ -496,4 +556,3 @@ int thread_preempt(void)
     schedule();
     return 0;
 }
-

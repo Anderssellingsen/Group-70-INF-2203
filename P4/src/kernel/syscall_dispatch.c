@@ -27,10 +27,14 @@ long syscall_dispatch(
     case SYS_exit: process_exit(arg1);
     case SYS_write: return process_write(arg1, (void *) arg2, arg3);
     case SYS_thrd_create: return thread_create(current_process, arg1, arg2);
-    case SYS_thrd_exit: thread_exit(arg1); /* No return. */
+    case SYS_thrd_exit: thread_exit(arg1);
     case SYS_thrd_join: return thread_join(arg1);
     case SYS_thrd_yield: return thread_yield();
     case SYS_read: return process_read(arg1, (void *) arg2, arg3);
+    case SYS_proc_spawn_munix:
+        return process_spawn((const char *) arg1, (char *const *) arg2);
+    case SYS_wait4:
+        return process_wait((pid_t) arg1, (int *) arg2, (int) arg3);
     }
 
     UNUSED(arg4), UNUSED(arg5);

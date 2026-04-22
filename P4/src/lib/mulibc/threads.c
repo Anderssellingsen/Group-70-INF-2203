@@ -178,35 +178,43 @@ int mtx_unlock(mtx_t *mutex)
 
 int cnd_init(cnd_t *cond)
 {
-    /* TODO */
-    (void) cond; // Unused for now
+    if (!cond) return thrd_error;
+    cond->seq = 0;
     return thrd_success;
 }
 
 void cnd_destroy(cnd_t *cond)
 {
-    /* TODO */
-    (void) cond; // Unused for now
+    (void) cond;
 }
 
 int cnd_wait(cnd_t *cond, mtx_t *mutex)
 {
-    /* TODO */
-    (void) cond, (void) mutex; // Unused for now
-    return thrd_success;
+    if (!cond || !mutex) return thrd_error;
+
+    unsigned seq = cond->seq;
+
+    int res = mtx_unlock(mutex);
+    if (res != thrd_success) return res;
+
+    while (cond->seq == seq) {
+        thrd_yield();
+    }
+
+    return mtx_lock(mutex);
 }
 
 int cnd_signal(cnd_t *cond)
 {
-    /* TODO */
-    (void) cond; // Unused for now
+    if (!cond) return thrd_error;
+    cond->seq++;
     return thrd_success;
 }
 
 int cnd_broadcast(cnd_t *cond)
 {
-    /* TODO */
-    (void) cond; // Unused for now
+    if (!cond) return thrd_error;
+    cond->seq++;
     return thrd_success;
 }
 
@@ -214,22 +222,60 @@ int cnd_broadcast(cnd_t *cond)
 
 int brr_init(brr_t *b, size_t n)
 {
-    /* TODO */
-    (void) b, (void) n; // Unused for now
+    if (!b || n == 0) return thrd_error;
+
+    b->target     = n;
+    b->arrived    = 0;
+    b->generation = 0;
+
+    int res = mtx_init(&b->lock, mtx_plain);
+    if (res != thrd_success) return res;
+
+    res = cnd_init(&b->cond);
+    if (res != thrd_success) {
+        mtx_destroy(&b->lock);
+        return res;
+    }
+
     return thrd_success;
 }
 
 int brr_destroy(brr_t *b)
 {
-    /* TODO */
-    (void) b; // Unused for now
+    if (!b) return thrd_error;
+
+    cnd_destroy(&b->cond);
+    mtx_destroy(&b->lock);
     return thrd_success;
 }
 
 int brr_wait(brr_t *b)
 {
-    /* TODO */
-    (void) b; // Unused for now
+    if (!b) return thrd_error;
+
+    int res = mtx_lock(&b->lock);
+    if (res != thrd_success) return res;
+
+    unsigned gen = b->generation;
+    b->arrived++;
+
+    if (b->arrived == b->target) {
+        b->arrived = 0;
+        b->generation++;
+        cnd_broadcast(&b->cond);
+        mtx_unlock(&b->lock);
+        return thrd_success;
+    }
+
+    while (gen == b->generation) {
+        res = cnd_wait(&b->cond, &b->lock);
+        if (res != thrd_success) {
+            mtx_unlock(&b->lock);
+            return res;
+        }
+    }
+
+    mtx_unlock(&b->lock);
     return thrd_success;
 }
 

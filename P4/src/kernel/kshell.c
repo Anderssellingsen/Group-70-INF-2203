@@ -7,7 +7,7 @@
 #include <drivers/fileformat/ascii.h>
 #include <drivers/log.h>
 #include <drivers/vfs.h>
-
+#include "scheduler.h"
 #include <core/compiler.h>
 #include <core/ctype.h>
 #include <core/errno.h>
@@ -418,9 +418,15 @@ int kshell_read_exec(struct kshell *sh)
         p->fds[2] = sh->err; // FD 2 = stderr
 
         res = process_start(p, argc, argv);
-        reporterr(sh, res, "%s exited with code %d\n", argv[0], res);
+        reporterr(sh, res, "%s start failed with code %d\n", argv[0], res);
+        if (res < 0) {
         process_close(p);
-        return -EAGAIN;
+    return -EAGAIN;
+    }
+
+    schedule();
+
+    return -EAGAIN;
     }
 
     /* Not found. */

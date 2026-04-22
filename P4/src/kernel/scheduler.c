@@ -27,13 +27,13 @@ static int tqueue_tostr(char *buf, size_t n, struct list_head *queue)
 
 void sched_add(struct thread *t)
 {
-    /* Add thread to ready queue. */
+    pr_debug("sched_add: tid=%d (%s)\n", t->tid, t->process->name);
     list_add_tail(&t->queue, &ready_queue);
 }
 
 void sched_remove(struct thread *t)
 {
-    /* Remove thread from scheduling. */
+    pr_debug("sched_remove: tid=%d (%s)\n", t->tid, t->process->name);
     list_del(&t->queue);
 }
 
@@ -71,13 +71,20 @@ static struct thread *choose_next_thread(void)
 
 void schedule(void)
 {
-    /* If there is a current thread running, put it back in the ready queue. */
     if (current_thread && current_thread->runstate == RS_READY)
         list_add_tail(&current_thread->queue, &ready_queue);
 
-    /* Choose next thread and switch to it. */
     struct thread *next = choose_next_thread();
     sched_remove(next);
+
+    if (next == current_thread) return;
+
     thread_switch(current_thread, next);
+}
+
+int init_scheduler(void)
+{
+    INIT_LIST_HEAD(&ready_queue);
+    return 0;
 }
 

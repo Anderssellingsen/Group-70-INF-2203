@@ -59,7 +59,7 @@ int  mtx_unlock(mtx_t *mutex);
 #define _CND_QUEUE_SZ 8
 
 struct _cnd {
-    /* TODO: Design condition variable struct */
+    volatile unsigned seq;
 };
 
 typedef struct _cnd cnd_t; ///< Type for a user-side condition variable
@@ -76,7 +76,11 @@ int  cnd_broadcast(cnd_t *cond);
 #define __MUNIX_BARRIERS__
 
 struct _brr {
-    /* TODO: Design barrier struct */
+    size_t target;
+    size_t arrived;
+    unsigned generation;
+    mtx_t lock;
+    cnd_t cond;
 };
 
 typedef struct _brr brr_t;

@@ -22,12 +22,21 @@ enum runstate {
     RS_EXITED,
 };
 
+enum procstate {
+    PS_RUNNING,
+    PS_EXITED,
+};
+
 struct process {
     struct file execfile;
     char        name[DEBUGSTR_MAX];
 
     pid_t     pid;
+    pid_t     parent_pid;
     uintptr_t start_addr;
+
+    int            exit_status;
+    enum procstate state;
 
     /* Stack addresses */
     uintptr_t ustack;
@@ -48,7 +57,6 @@ struct process {
     /* Threads in process */
     int              threadct_active; ///< Count of non-exited threads
     struct list_head threads;
-
 };
 
 struct thread {
@@ -74,27 +82,28 @@ struct thread {
     /* Stats */
     int yield_ct;
     int preempt_ct;
-
 };
 
 extern struct process *current_process;
-extern struct thread *current_thread;
+extern struct thread  *current_thread;
 
 struct process *process_alloc(void);
-int  process_load_path(struct process *p, const char *cwd, const char *path);
-int  process_start(struct process *p, int argc, char *argv[]);
-void process_close(struct process *p);
+int             process_load_path(struct process *p, const char *cwd, const char *path);
+int             process_start(struct process *p, int argc, char *argv[]);
+int             process_spawn(const char *pathname, char *const argv[]);
+void            process_close(struct process *p);
 
-void process_kill(struct process *p);
+void      process_kill(struct process *p);
 _Noreturn void process_exit(int status);
-ssize_t        process_write(int fd, const void *src, size_t count);
-ssize_t process_read(int fd, void *dst, size_t count);
+int       process_wait(pid_t pid, int *wstatus, int options);
+ssize_t   process_write(int fd, const void *src, size_t count);
+ssize_t   process_read(int fd, void *dst, size_t count);
 
-int thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack);
-int thread_switch(struct thread *outgoing, struct thread *incoming);
+int       thread_create(struct process *p, uintptr_t start_addr, uintptr_t ustack);
+int       thread_switch(struct thread *outgoing, struct thread *incoming);
 _Noreturn void thread_exit(int status);
-int            thread_join(pid_t tid);
-int thread_yield(void);
-int thread_preempt(void);
+int       thread_join(pid_t tid);
+int       thread_yield(void);
+int       thread_preempt(void);
 
 #endif /* PROCESS_H */
